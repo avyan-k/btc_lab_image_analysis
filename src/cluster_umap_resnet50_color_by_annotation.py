@@ -237,7 +237,7 @@ if __name__ == "__main__":
     image_directory = "/Users/Account/Desktop/AI_project_files/image_clustering/data_test"
 
     results_directory = "/Users/Account/Desktop/AI_project_files/image_clustering/results_test"
-
+    
     # Output file names
     umap_annotation_file = f"umap_{tumor_type}_{run_id}_{seed}_{sample_size}_annotation.png"
     umap_kmeans_file = f"umap_{tumor_type}_{run_id}_{seed}_{sample_size}_kmeans.png"
