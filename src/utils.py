@@ -1,5 +1,4 @@
 import torch
-
 def load_device():
     
     # if a macOs then use mps

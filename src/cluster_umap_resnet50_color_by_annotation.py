@@ -69,7 +69,6 @@ def get_features_array(image_directory, preprocess, model):
     tumor_paths = [path for path in Path(image_directory).rglob('tumor/*.jpg')]
     image_paths = random.sample(tumor_paths,sample_size)
     normal_paths = [path for path in Path(image_directory).rglob('normal/*.jpg')]
-    print(len(normal_paths))
     image_paths.extend(random.sample(normal_paths,sample_size))
     annotations = [path.parent.name for path in image_paths]
     
