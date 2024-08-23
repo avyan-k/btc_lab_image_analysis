@@ -26,6 +26,7 @@ import sys
 import re
 import numpy as np
 import pandas as pd
+import random
 import torch
 from torchvision import models, transforms
 from torchvision.models import ResNet50_Weights
@@ -35,6 +36,7 @@ import umap
 import matplotlib.pyplot as plt
 from datetime import datetime
 from pathlib import Path
+from tqdm import tqdm
 
 
 from sklearn.cluster import KMeans
@@ -64,15 +66,18 @@ def extract_features(image_paths, preprocess, model):
 
 def get_features_array(image_directory, preprocess, model):
     # Get paths of images in image_directory
-    image_paths = [path for path in Path(image_directory).rglob('*.jpg')]
+    tumor_paths = [path for path in Path(image_directory).rglob('tumor/*.jpg')]
+    image_paths = random.sample(tumor_paths,sample_size)
+    normal_paths = [path for path in Path(image_directory).rglob('normal/*.jpg')]
+    print(len(normal_paths))
+    image_paths.extend(random.sample(normal_paths,sample_size))
     annotations = [path.parent.name for path in image_paths]
-
     
     # Get list of feature vectors for each image
     features_list = []
-    for i, path in enumerate(image_paths):
-        sys.stdout.write(f"\rExtracting features for images {i + 1} out of {len(image_paths)}")
-        sys.stdout.flush()
+    for path in tqdm(image_paths):
+        # sys.stdout.write(f"\rExtracting features for images {i + 1} out of {len(image_paths)}")
+        # sys.stdout.flush()
         features = extract_features(path, preprocess, model) # get vector of features for each image
         features_list.append(features) # add vector to a list
     sys.stdout.write("\n")
@@ -122,7 +127,7 @@ def generate_umap_annotation(features_scaled, seed, annotations, umap_annotation
     plt.title(f'{tumor_type} UMAP Projection') ##### HOW DOES IT KNOW TO TAKE tumor_type I NEVER PASSED IT AS AN ARGUMENT
     plt.xlabel('UMAP Dimension 1')
     plt.ylabel('UMAP Dimension 2')
-    #plt.savefig(umap_annotation_output_path)
+    plt.savefig(umap_annotation_output_path)
     plt.show()
     return umap_embedding
 
@@ -152,7 +157,7 @@ def plot_umap_for_kmeans(n_clusters, clusters, umap_embedding, umap_kmeans_outpu
     plt.title(f'{tumor_type} UMAP Projection with k-means clustering on UMAP embeddings') ##### HOW DOES IT KNOW TO TAKE tumor_type I NEVER PASSED IT AS AN ARGUMENT
     plt.xlabel('UMAP Dimension 1')
     plt.ylabel('UMAP Dimension 2')
-    #plt.savefig(umap_kmeans_output_path)
+    plt.savefig(umap_kmeans_output_path)
     plt.show()
     return
 
@@ -228,13 +233,14 @@ if __name__ == "__main__":
 
     # Set up parameters
     run_id = "test1"
-    tumor_type = "sccoht"
+    tumor_type = "SCCOHT_1"
     seed = 99
-    sample_size = 100
+    random.seed(seed)
+    sample_size = 5000
 
     # Paths
     #image_directory = "/Users/Account/Desktop/AI_project_files/image_clustering/data_sccoht_pure_08-19"
-    image_directory = "/Users/Account/Desktop/AI_project_files/image_clustering/data_test"
+    image_directory = f"/Users/Account/Desktop/AI_project_files/btc_image_directory/{tumor_type}/images"
 
     results_directory = "/Users/Account/Desktop/AI_project_files/image_clustering/results_test"
     
