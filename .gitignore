@@ -1,5 +1,7 @@
 images
+results
 __pycache__/
 *.py[cod]
 *$py.class
 tempCodeRunnerFile.py
+.DS_Store
