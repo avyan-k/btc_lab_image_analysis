@@ -32,28 +32,29 @@ from torchvision import models, transforms
 from torchvision.models import ResNet50_Weights
 from PIL import Image
 from sklearn.preprocessing import StandardScaler
-import umap
+import umap.umap_ as umap
 import matplotlib.pyplot as plt
 from datetime import datetime
 from pathlib import Path
 from tqdm import tqdm
-
-
 from sklearn.cluster import KMeans
 from matplotlib.colors import ListedColormap
-
+# project files
+import loading_data as ld
+import utils
+DEVICE = utils.load_device()
 """RESNET50"""
 def setup_resnet_model():
-    # Defines transformations to apply on images
-    preprocess = transforms.Compose([
-        transforms.Resize((224, 224)),  # ResNet expects 224x224 images
-        transforms.ToTensor(), # Converts the image to a PyTorch tensor, which also scales the pixel values to the range [0, 1]
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]), # Normalizes the image tensor using the mean and standard deviation values that were used when training the ResNet model (usually on ImageNet)
-    ])
+    # # Defines transformations to apply on images
+    # preprocess = transforms.Compose([
+    #     transforms.Resize((224, 224)),  # ResNet expects 224x224 images
+    #     transforms.ToTensor(), # Converts the image to a PyTorch tensor, which also scales the pixel values to the range [0, 1]
+    #     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]), # Normalizes the image tensor using the mean and standard deviation values that were used when training the ResNet model (usually on ImageNet)
+    # ])
 
     model = models.resnet50(weights=ResNet50_Weights.DEFAULT)
 
-    return preprocess, model
+    return model
 
 
 """FEATURE EXTRACTION"""
@@ -64,23 +65,28 @@ def extract_features(image_paths, preprocess, model):
         features = model(image)
     return features.squeeze().numpy()
 
-def get_features_array(image_directory, preprocess, model):
+def get_features_array(batch_size, model):
     # Get paths of images in image_directory
-    tumor_paths = [path for path in Path(image_directory).rglob('tumor/*.jpg')]
-    image_paths = random.sample(tumor_paths,sample_size)
-    normal_paths = [path for path in Path(image_directory).rglob('normal/*.jpg')]
-    image_paths.extend(random.sample(normal_paths,sample_size))
-    annotations = [path.parent.name for path in image_paths]
+    # tumor_paths = [path for path in Path(image_directory).rglob('tumor/*.jpg')]
+    # image_paths = random.sample(tumor_paths,sample_size)
+    # normal_paths = [path for path in Path(image_directory).rglob('normal/*.jpg')]
+    # image_paths.extend(random.sample(normal_paths,sample_size))
+    # annotations = [path.parent.name for path in image_paths]
     
     # Get list of feature vectors for each image
+    image_loader,filepaths,labels = ld.load_data(batch_size,tumor_type,seed,sample_size)
+    model = model.to(DEVICE)
     features_list = []
-    for path in tqdm(image_paths):
-        # sys.stdout.write(f"\rExtracting features for images {i + 1} out of {len(image_paths)}")
-        # sys.stdout.flush()
-        features = extract_features(path, preprocess, model) # get vector of features for each image
-        features_list.append(features) # add vector to a list
-    sys.stdout.write("\n")
-    return image_paths, annotations, np.array(features_list) # convert list of vectors into numpy array
+    annotation_list = []
+    for images,annotations in tqdm(image_loader):
+        with torch.no_grad():
+            images = images.to(DEVICE)
+            features = model(images)
+            features_list.append(features.cpu())
+            annotation_list.append(annotations)
+        # features = extract_features(path, preprocess, model) # get vector of features for each image
+        # features_list.append(features) # add vector to a list
+    return filepaths, labels, np.array(torch.cat(features_list, dim=0)) # convert list of vectors into numpy array
 
 
 """NORMALIZATION"""
@@ -96,12 +102,8 @@ def extract_annotation(image_path):
     match = re.search(r'(t|n)\.jpg$', image_path) # search for a match for n.jpg or t.jpg
     return match.group(1) if match else None # returns for which annotation the match was found
 
-def map_annotations_to_colors(annotations):
-    annotation_colors = {'normal': 'blue', 'tumor': 'red'}
-    return [annotation_colors[annotation] for annotation in annotations] # returns which color to use based on annotation
 
-
-def generate_umap_annotation(features_scaled, seed, annotations, umap_annotation_output_path):
+def generate_umap_annotation(features_scaled, seed, annotations, umap_annotation_output_path,tumor_type):
     umap_model = umap.UMAP(n_neighbors=15, min_dist=0.1, metric='euclidean', random_state=seed)
     umap_embedding = umap_model.fit_transform(features_scaled)
 
@@ -110,7 +112,8 @@ def generate_umap_annotation(features_scaled, seed, annotations, umap_annotation
 
     # Get annotations from last 2 characters before .jpg extension 
     print(f"annotations:\n{annotations}\n")
-    colors = map_annotations_to_colors(annotations) # says which color to associate to the annotations of each file
+    annotation_colors = {'normal': 'blue', 'undiff': 'red', 'well_diff' : 'green', 'possibly_undiff' : 'brown'} if'DDC_UC' in tumor_type else {'normal': 'blue', 'tumor': 'red'} # says which color to associate to the annotations of each file
+    colors = [annotation_colors[annotation] for annotation in annotations]
     print(f"\n\n{colors}\n")
 
     # Generating figure settings
@@ -132,8 +135,7 @@ def generate_umap_annotation(features_scaled, seed, annotations, umap_annotation
 
 
 """KMEANS CLUSTERING ON UMAP PROJECTION"""
-def kmeans_clustering(umap_embedding, seed):
-    n_clusters = 2
+def kmeans_clustering(umap_embedding, seed, n_clusters):
     kmeans = KMeans(n_clusters=n_clusters, random_state=seed)
     clusters = kmeans.fit_predict(umap_embedding)
     return n_clusters, clusters
@@ -160,10 +162,10 @@ def plot_umap_for_kmeans(n_clusters, clusters, umap_embedding, umap_kmeans_outpu
     plt.show()
     return
 
-def kmeans_clusters_from_umap(umap_embedding, seed, umap_kmeans_output_path, cluster_csv_file_path, image_paths):
+def kmeans_clusters_from_umap(umap_embedding, seed, umap_kmeans_output_path, cluster_csv_file_path, image_paths, n_clusters):
 
     # clustering from umap_embeddings
-    n_clusters, clusters = kmeans_clustering(umap_embedding, seed)
+    n_clusters, clusters = kmeans_clustering(umap_embedding, seed, n_clusters)
 
     plot_umap_for_kmeans(n_clusters, clusters, umap_embedding, umap_kmeans_output_path)
 
@@ -176,25 +178,25 @@ def kmeans_clusters_from_umap(umap_embedding, seed, umap_kmeans_output_path, clu
 
 
 """MAIN UMAP GENERATION FUNCTION"""
-def cluster_and_visualize_images(seed,image_directory, umap_annotation_outpath_path, umap_kmeans_output_path, csv_output_path, pdf_output_path, elbowplot_output_path):
+def cluster_and_visualize_images(seed,image_directory, umap_annotation_outpath_path, umap_kmeans_output_path, csv_output_path, pdf_output_path, elbowplot_output_path,batch_size):
     
     print(f"TESTING with: {image_directory}\n")
     
     # Setting the seeds for reproducibility
     np.random.seed(seed) # numpy random seed
     # torch random seed
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
-        device = torch.device("cuda")
-        gpu_name = torch.cuda.get_device_name(0)
-        print(f"Using GPU: {gpu_name}\n")
-    else:
-        torch.manual_seed(seed)
-        device = torch.device("cpu")
-        print(f"Using CPU\n")
+    # if torch.cuda.is_available():
+    #     torch.cuda.manual_seed_all(seed)
+    #     device = torch.device("cuda")
+    #     gpu_name = torch.cuda.get_device_name(0)
+    #     print(f"Using GPU: {gpu_name}\n")
+    # else:
+    #     torch.manual_seed(seed)
+    #     device = torch.device("cpu")
+    #     print(f"Using CPU\n")
 
     # ResNet50 model
-    preprocess, model = setup_resnet_model()
+    model = setup_resnet_model()
     #print(f"Model structure:\n{model}\n")
     #print(f"type(preprocess):\t{type(preprocess)}\n")
     model.eval()
@@ -206,7 +208,7 @@ def cluster_and_visualize_images(seed,image_directory, umap_annotation_outpath_p
     """
 
     # Feature extraction from images --> into array of features for each image
-    image_paths, annotations, features_array = get_features_array(image_directory, preprocess, model)
+    image_paths, annotations, features_array = get_features_array(batch_size, model)
     print(f"\nfeatures_array.shape: (num_images, num_features)\n{features_array.shape}\n")
 
     # Normalization for features_array
@@ -215,10 +217,10 @@ def cluster_and_visualize_images(seed,image_directory, umap_annotation_outpath_p
 
     # UMAP dimension reduction with annotations in legend
     # uses normalized features_array
-    umap_embeddings = generate_umap_annotation(normalization_features_array(features_array), seed, annotations, umap_annotation_outpath_path)
-
+    umap_embeddings = generate_umap_annotation(normalization_features_array(features_array), seed, annotations, umap_annotation_outpath_path,tumor_type)
+    n_clusters = 3 if 'DDC_UC' in tumor_type else 2      
     # UMAP dimension reduction with k-means clustering on umap_embeddings in legend
-    kmeans_clusters_from_umap(umap_embeddings, seed, umap_kmeans_output_path, csv_output_path, image_paths)
+    kmeans_clusters_from_umap(umap_embeddings, seed, umap_kmeans_output_path, csv_output_path, image_paths, n_clusters)
     
     return
 
@@ -229,19 +231,20 @@ def get_time():
 
 
 if __name__ == "__main__":
-
+    
     # Set up parameters
-    run_id = "test1"
-    tumor_type = "SCCOHT_1"
+    run_id = f"{get_time()[:10]}"
+    tumor_type = "DDC_UC_1"
     seed = 99
     random.seed(seed)
-    sample_size = 5000
+    total = len([path for path in Path(f"./images/{tumor_type}/images").rglob('*.jpg')])
+    sample_size = total
 
     # Paths
     #image_directory = "/Users/Account/Desktop/AI_project_files/image_clustering/data_sccoht_pure_08-19"
-    image_directory = f"/Users/Account/Desktop/AI_project_files/btc_image_directory/{tumor_type}/images"
+    image_directory = f"./images/{tumor_type}/images"
 
-    results_directory = "/Users/Account/Desktop/AI_project_files/image_clustering/results_test"
+    results_directory = "./results"
     
     # Output file names
     umap_annotation_file = f"umap_{tumor_type}_{run_id}_{seed}_{sample_size}_annotation.png"
@@ -265,7 +268,8 @@ if __name__ == "__main__":
                                  csv_output_path=csv_output_path,
                                  pdf_output_path=pdf_output_path,
                                  elbowplot_output_path=elbowplot_output_path,
-                                 seed=seed
+                                 seed=seed,
+                                 batch_size = 100
                                  )
 
 
