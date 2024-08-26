@@ -178,7 +178,7 @@ def kmeans_clusters_from_umap(umap_embedding, seed, umap_kmeans_output_path, clu
 
 
 """MAIN UMAP GENERATION FUNCTION"""
-def cluster_and_visualize_images(seed,image_directory, umap_annotation_outpath_path, umap_kmeans_output_path, csv_output_path, pdf_output_path, elbowplot_output_path,batch_size):
+def cluster_and_visualize_images(seed,image_directory, umap_annotation_outpath_path, umap_kmeans_output_path, csv_output_path, pdf_output_path,batch_size):
     
     print(f"TESTING with: {image_directory}\n")
     
@@ -259,7 +259,6 @@ if __name__ == "__main__":
                                  umap_kmeans_output_path=umap_kmeans_output_path,
                                  csv_output_path=csv_output_path,
                                  pdf_output_path=pdf_output_path,
-                                 elbowplot_output_path=elbowplot_output_path,
                                  seed=seed,
                                  batch_size = 100
                                  )
