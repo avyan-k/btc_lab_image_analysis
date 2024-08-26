@@ -3,6 +3,9 @@ from pathlib import Path
 import torch
 from torchvision import datasets, transforms
 from torch.utils.data import Dataset,DataLoader, Subset
+from PIL import Image, UnidentifiedImageError
+from tqdm import tqdm
+from datetime import datetime
 
 def load_data(batch_size,tumor_type,seed, sample_size):
     torch.manual_seed(seed)
@@ -29,5 +32,18 @@ def load_data(batch_size,tumor_type,seed, sample_size):
     print(f"Training set size: {len(train_dataset)}")
     return train_loader,filenames,labels
 
+def check_for_unopenable_files(image_directory,tumor_type):
+    with open(file=f"./results/{tumor_type}_corrupted_files.txt",mode='w') as f:
+        time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        f.write(f"Checked on {time}\n")
+        images_paths = [path for path in Path(image_directory).rglob('*.jpg')]
+        for image_path in tqdm(images_paths):
+            try:
+                Image.open(image_path)
+            except(UnidentifiedImageError):
+                f.write(str(image_path))
+
 if __name__ == "__main__":
-    load_data("vMRT",99,1000)
+    # load_data("vMRT",99,1000)
+    tumor_type = "DDC_UC_1"
+    check_for_unopenable_files(image_directory = f"./images/{tumor_type}/images",tumor_type=tumor_type)

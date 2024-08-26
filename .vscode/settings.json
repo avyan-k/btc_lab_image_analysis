@@ -1,0 +1,4 @@
+{
+    // Exclude all files from workspace, enabling IntelliSense support for open files only 
+    "python.analysis.exclude": ["**/images"],
+}
