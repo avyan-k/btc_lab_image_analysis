@@ -80,7 +80,7 @@ def extract_features(image_paths, preprocess, model):
         features = model(image)
     return features.squeeze().numpy()
 
-def get_features_array(batch_size, model):
+def get_and_save_features_array(batch_size, model,save=False):
     # Get paths of images in image_directory
     # tumor_paths = [path for path in Path(image_directory).rglob('tumor/*.jpg')]
     # image_paths = random.sample(tumor_paths,sample_size)
@@ -92,18 +92,30 @@ def get_features_array(batch_size, model):
     image_loader,filepaths,labels = ld.load_data(batch_size,tumor_type,seed,sample_size)
     model = model.to(DEVICE)
     features_list = []
-    annotation_list = []
     for images,annotations in tqdm(image_loader):
         with torch.no_grad():
             images = images.to(DEVICE)
             features = model(images)
             features_list.append(features.cpu())
-            annotation_list.append(annotations)
         # features = extract_features(path, preprocess, model) # get vector of features for each image
         # features_list.append(features) # add vector to a list
+    all_features = np.array(torch.cat(features_list, dim=0))
+    print("Saving Data")
+    if save: #TODO test this
+        datapath = "./features"
+        Path(os.path.join(datapath,tumor_type)).mkdir(parents=True, exist_ok=True)
+        for annotation_type in list(set(labels)):
+            Path(os.path.join(datapath,tumor_type,annotation_type)).mkdir(parents=True, exist_ok=True)
+        for i,features_array in enumerate(tqdm(all_features)):
+            filename = os.path.splitext(os.path.basename(filepaths[i]))[0]
+            annotation = labels[i]
+            np.savez(os.path.join(datapath,tumor_type,annotation,filename),features_array)
     return filepaths, labels, np.array(torch.cat(features_list, dim=0)) # convert list of vectors into numpy array
 
-
+def get_features_from_disk(size_of_dataset):
+    # Get list of feature vectors for each image
+    feature_loader,filepaths,labels = ld.load_feature_data(size_of_dataset,tumor_type,seed,sample_size)
+    return filepaths, labels, next(iter(feature_loader))[0].numpy()
 """NORMALIZATION"""
 def normalization_features_array(features_array):
     scaler = StandardScaler()
@@ -120,10 +132,10 @@ def generate_umap_annotation(features_scaled, seed, annotations, umap_annotation
     print(f"\ndim of umap_embedding:\t{umap_embedding.shape}\n")
 
     # Mapping annotations to colors
-    print(f"annotations:\n{annotations}\n")
+    # print(f"annotations:\n{annotations}\n")
     annotation_colors = {'normal': 'blue', 'undiff': 'red', 'well_diff' : 'green'} if'DDC_UC' in tumor_type else {'normal': 'blue', 'tumor': 'red'} # says which color to associate to the annotations of each file
     colors = [annotation_colors[annotation] for annotation in annotations]
-    print(f"\n\n{colors}\n")
+    # print(f"\n\n{colors}\n")
 
     # Generating figure settings
     plt.figure(figsize=(10, 8))
@@ -169,7 +181,7 @@ def plot_umap_for_kmeans(n_clusters, clusters, umap_embedding, umap_kmeans_outpu
     plt.show()
     return
 
-def kmeans_clusters_from_umap(umap_embedding, seed, umap_kmeans_output_path, cluster_csv_file_path, image_paths, n_clusters):
+def kmeans_clusters_from_umap(umap_embedding, seed, umap_kmeans_output_path, cluster_csv_file_path, image_paths, annotations,n_clusters):
 
     # clustering from umap_embeddings
     n_clusters, clusters = kmeans_clustering(umap_embedding, seed, n_clusters)
@@ -177,56 +189,12 @@ def kmeans_clusters_from_umap(umap_embedding, seed, umap_kmeans_output_path, clu
     plot_umap_for_kmeans(n_clusters, clusters, umap_embedding, umap_kmeans_output_path)
 
     # save a .csv file with cluster information for each file
-    cluster_info = pd.DataFrame({'ImagePath': image_paths, 'Cluster': clusters})
+    cluster_info = pd.DataFrame({'ImagePath': image_paths, 'Annotations': annotations,'Cluster': clusters})
     cluster_info.to_csv(cluster_csv_file_path, index=False)
     
 
 
     
-    
-    return
-
-
-"""MAIN UMAP GENERATION FUNCTION"""
-def cluster_and_visualize_images(seed,image_directory, umap_annotation_outpath_path, umap_kmeans_output_path, csv_output_path, pdf_output_path,batch_size):
-    
-    print(f"TESTING with: {image_directory}\n")
-    
-    # Setting the seeds for reproducibility
-    np.random.seed(seed) # numpy random seed
-
-    # torch random seed
-    # if torch.cuda.is_available():
-    #     torch.cuda.manual_seed_all(seed)
-    #     device = torch.device("cuda")
-    #     gpu_name = torch.cuda.get_device_name(0)
-    #     print(f"Using GPU: {gpu_name}\n")
-    # else:
-    #     torch.manual_seed(seed)
-    #     device = torch.device("cpu")
-    #     print(f"Using CPU\n")
-
-    # ResNet50 model
-    model = setup_resnet_model()
-    #print(f"Model structure:\n{model}\n")
-    #print(f"type(preprocess):\t{type(preprocess)}\n")
-    model.eval()
-    print("ResNet50 model setup complete.\n")
-    
-    # Feature extraction from images --> into array of features for each image
-    image_paths, annotations, features_array = get_features_array(batch_size, model)
-    print(f"\nfeatures_array.shape: (num_images, num_features)\n{features_array.shape}\n")
-
-    # Normalization for features_array
-    #features_scaled =  normalization_features_array(features_array)
-    #print(f"\nfeatures_scaled.shape: (num_images, num_features)\n{features_scaled.shape}\n")
-
-    # UMAP dimension reduction with annotations in legend
-    # uses normalized features_array
-    umap_embeddings = generate_umap_annotation(normalization_features_array(features_array), seed, annotations, umap_annotation_outpath_path,tumor_type)
-    n_clusters = 3 if 'DDC_UC' in tumor_type else 2      
-    # UMAP dimension reduction with k-means clustering on umap_embeddings in legend
-    kmeans_clusters_from_umap(umap_embeddings, seed, umap_kmeans_output_path, csv_output_path, image_paths, n_clusters)
     
     return
 
@@ -238,17 +206,19 @@ def get_time():
 if __name__ == "__main__":
     
     # Set up parameters
-    run_id = f"{get_time()[:10]}"
-    tumor_type = "SCCOHT_1"
+    run_id = f"{get_time()[:10]}disk_test"
+    tumor_type = "vMRT"  
     seed = 99
     random.seed(seed)
-    total = len([path for path in Path(f"./images/{tumor_type}/images").rglob('*.jpg')])
-    sample_size = 50
+    size_of_image_dataset = len([path for path in Path(f"./images/{tumor_type}/images").rglob('*.jpg')])
+    size_of_feature_dataset = len([path for path in Path(f"./features/{tumor_type}").rglob('*.npz')])
+    sample_size = size_of_feature_dataset
+    batch_size = 100
 
     # Paths
     #image_directory = "/Users/Account/Desktop/AI_project_files/image_clustering/data_sccoht_pure_08-19"
     image_directory = f"./images/{tumor_type}/images"
-
+    feature_directory = f"./features/{tumor_type}"
     results_directory = "./results"
     
     # Output file names
@@ -262,16 +232,29 @@ if __name__ == "__main__":
     umap_kmeans_output_path = os.path.join(results_directory, umap_kmeans_file)
     csv_output_path = os.path.join(results_directory, csv_file)
     pdf_output_path = os.path.join(results_directory, csv_file)
+    
+    # Setting the seeds for reproducibility
+    np.random.seed(seed) # numpy random seed
 
+    # ResNet50 model
+    model = setup_resnet_model()
+    model.eval()
+    print("ResNet50 model setup complete.\n")
+    
+    # Feature extraction from images --> into array of features for each image
+    save_features = sample_size == size_of_feature_dataset # ONLY save when using entire dataset
+    # image_paths, annotations, features_array = get_and_save_features_array(batch_size, model,save=save_features)
+    image_paths, annotations, features_array = get_features_from_disk(size_of_feature_dataset)
+    print(f"\nfeatures_array.shape: (num_images, num_features)\n{features_array.shape}\n")
 
-    cluster_and_visualize_images(image_directory=image_directory,
-                                 umap_annotation_outpath_path=umap_annotation_outpath_path,
-                                 umap_kmeans_output_path=umap_kmeans_output_path,
-                                 csv_output_path=csv_output_path,
-                                 pdf_output_path=pdf_output_path,
-                                 seed=seed,
-                                 batch_size = 100
-                                 )
+    # UMAP dimension reduction with annotations in legend
+    # uses normalized features_array
+    print(f"Generating UMAP for the features {features_array.shape[0]} images")
+    umap_embeddings = generate_umap_annotation(normalization_features_array(features_array), seed, annotations, umap_annotation_outpath_path,tumor_type)
+    n_clusters = 3 if 'DDC_UC' in tumor_type else 2      
+    # UMAP dimension reduction with k-means clustering on umap_embeddings in legend
+
+    kmeans_clusters_from_umap(umap_embeddings, seed, umap_kmeans_output_path, csv_output_path, image_paths, annotations, n_clusters)
 
     print(f"\n\nCompleted at {get_time()}")
 

@@ -1,4 +1,5 @@
 images
+features
 results/*.png
 results/*.csv
 __pycache__/

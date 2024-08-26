@@ -1,5 +1,8 @@
 import random
+import numpy as np
+import os
 from pathlib import Path
+import shutil
 import torch
 from torchvision import datasets, transforms
 from torch.utils.data import Dataset,DataLoader, Subset
@@ -7,10 +10,64 @@ from PIL import Image, UnidentifiedImageError
 from tqdm import tqdm
 from datetime import datetime
 
+
+class FeatureDataset(Dataset):
+    def __init__(self, datapath : str,  transform=None):
+        """
+        Arguments:
+            datapath (string): Directory in which the class folders are located.
+            transform (callable, optional): Optional transform to be applied
+                on a sample.
+        """
+        self.paths = list(Path(datapath).glob("*/*.npz")) # loads all possible numpy arrays in directory as filepaths
+        self.labels = [path.parent.name for path in self.paths]
+        self.transform = transform
+        self.classes =  sorted(entry.name for entry in os.scandir(datapath) if entry.is_dir()) # finds all possible classes and sorts them
+        self.class_to_idx = {cls_name: i for i, cls_name in enumerate(self.classes)} # converts a class to its index, used in __getitem__
+
+    def __len__(self) -> int:
+        return len(self.paths)
+    
+    def __getitem__(self, index : int) -> tuple[torch.Tensor, int]:
+        array = np.load(str(self.paths[index]))["arr_0"] # load array from filepath, note that since no arg is provided when saving, the first array is arr_0
+        tensor = torch.from_numpy(array) # convert to tensor
+        class_name  = self.paths[index].parent.name # since we use pathlib.Path, we can call its parent for the class
+        cindex = self.class_to_idx[class_name]
+
+        if self.transform:
+            return self.transform(tensor).float(), cindex
+        else:
+            return tensor.float(), cindex
+        
+def load_feature_data(batch_size,tumor_type,seed, sample_size):
+    torch.manual_seed(seed)
+    random.seed(seed)
+    feature_directory = f"./features/{tumor_type}"
+    print(f"Loading data from: {feature_directory}")
+    # get full data set 
+    train_dataset = FeatureDataset(feature_directory)
+    # print(train_dataset.classes,train_dataset.classes[0],train_dataset.classes[1])
+    filenames = [str(path) for path in train_dataset.paths]
+    labels = train_dataset.labels
+    # split dataset
+    indices = random.sample(range(len(train_dataset)), min(sample_size,len(train_dataset)))
+    train_dataset = Subset(train_dataset, indices)
+    filenames = [filenames[i] for i in indices]
+    labels = [labels[i] for i in indices]
+    # print(filenames,labels,sep='\n')  
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
+    # valid_loader = DataLoader(valid_dataset, batch_size=3, shuffle=True)
+    print(f"Training set size: {len(train_dataset)}")
+    return train_loader,filenames,labels
+
 def load_data(batch_size,tumor_type,seed, sample_size):
+
+    shutil.rmtree('./images/DDC_UC_1/images/possibly_undiff',ignore_errors=True)
+    shutil.rmtree('./images/DDC_UC/images/possibly_undiff',ignore_errors=True)
     torch.manual_seed(seed)
     random.seed(seed)
     image_directory = f"./images/{tumor_type}/images"
+    print(f"Loading data from: {image_directory}")
     processing_transforms = transforms.Compose([
         transforms.Resize((224, 224)),  # ResNet expects 224x224 images
         transforms.ToTensor(), # Converts the image to a PyTorch tensor, which also scales the pixel values to the range [0, 1]
@@ -43,7 +100,10 @@ def check_for_unopenable_files(image_directory,tumor_type):
             except(UnidentifiedImageError):
                 f.write(str(image_path))
 
+
 if __name__ == "__main__":
     # load_data("vMRT",99,1000)
+    load_feature_data(100,"VMRT",99,100)
     tumor_type = "DDC_UC_1"
-    check_for_unopenable_files(image_directory = f"./images/{tumor_type}/images",tumor_type=tumor_type)
+    # check_for_unopenable_files(image_directory = f"./images/{tumor_type}/images",tumor_type=tumor_type)
+    # x = Image.open(f"./images/DDC_UC_1/images/undiff/AS15041526_227753du.jpg")
