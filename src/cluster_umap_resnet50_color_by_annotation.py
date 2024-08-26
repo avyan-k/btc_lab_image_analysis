@@ -6,11 +6,26 @@ Coloring by annotations (normal, tumor for SCCOHT & vMRT   |   normal, well_diff
 
 Image dataset contains .jpg image files of tiles for different annotations.
 
-The .jpg image files must follow a naming system where
-    - the last character of the base filename represents the annotation.
-        Ex. in the file 'OC1813435_A4_4030sn.jpg' the last 'n' character represents the annotation 'normal'
-    - the before-to-last character of the base filename represents the tumor_type.
-        Ex. in the file 'OC1813435_A4_4030sn.jpg' the before-to-last 's' character represents the tumor_type 'sccoht'
+images/   #Primary data folder for the project
+├── DDC_UC/ 
+│   ├── images/
+│   │   ├── normal/
+│   │   |   ├── image01.jpg
+│   │   |   ├── image02jpg
+│   │   |   └── ...
+│   │   ├── undiff/
+│   │   ├── well-diff
+│   │   └── ...
+├── SCCOHT/ 
+│   ├── images/
+│   │   ├── normal/
+│   │   |   ├── image01.jpg
+│   │   |   ├── image02jpg
+│   │   |   └── ...
+│   │   ├── tumor/
+│   │   |   ├── image10.jpg
+│   │   |   ├── image11jpg
+|   │   │   └── ..
 
 TO CHANGE
 - n_clusters (int)  
@@ -98,20 +113,15 @@ def normalization_features_array(features_array):
 
 
 """UMAP GENERATION - COLORING BASED ON ANNOTATIONS"""
-def extract_annotation(image_path):
-    match = re.search(r'(t|n)\.jpg$', image_path) # search for a match for n.jpg or t.jpg
-    return match.group(1) if match else None # returns for which annotation the match was found
-
-
 def generate_umap_annotation(features_scaled, seed, annotations, umap_annotation_output_path,tumor_type):
     umap_model = umap.UMAP(n_neighbors=15, min_dist=0.1, metric='euclidean', random_state=seed)
     umap_embedding = umap_model.fit_transform(features_scaled)
 
     print(f"\ndim of umap_embedding:\t{umap_embedding.shape}\n")
 
-    # Get annotations from last 2 characters before .jpg extension 
+    # Mapping annotations to colors
     print(f"annotations:\n{annotations}\n")
-    annotation_colors = {'normal': 'blue', 'undiff': 'red', 'well_diff' : 'green', 'possibly_undiff' : 'brown'} if'DDC_UC' in tumor_type else {'normal': 'blue', 'tumor': 'red'} # says which color to associate to the annotations of each file
+    annotation_colors = {'normal': 'blue', 'undiff': 'red', 'well_diff' : 'green'} if'DDC_UC' in tumor_type else {'normal': 'blue', 'tumor': 'red'} # says which color to associate to the annotations of each file
     colors = [annotation_colors[annotation] for annotation in annotations]
     print(f"\n\n{colors}\n")
 
@@ -120,9 +130,9 @@ def generate_umap_annotation(features_scaled, seed, annotations, umap_annotation
     plt.scatter(umap_embedding[:, 0], umap_embedding[:, 1], c=colors, s=5, alpha=0.7)
 
     #legend
-    handles = [plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=color, markersize=10) for color in ['blue', 'red']]
-    labels = ['n', 't']
-    plt.legend(handles, labels, title='Annotations')
+    handles = [plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=color, markersize=10) for color in ['blue', 'red', 'green']]
+    legend_labels = ['normal', 'undiff', 'well_diff'] if 'DDC_UC' in tumor_type else ['normal', 'tumor']
+    plt.legend(handles, legend_labels, title='Annotations')
 
     plt.title(f'{tumor_type} UMAP Projection')
     plt.xlabel('UMAP Dimension 1')
@@ -229,11 +239,11 @@ if __name__ == "__main__":
     
     # Set up parameters
     run_id = f"{get_time()[:10]}"
-    tumor_type = "DDC_UC_1"
+    tumor_type = "SCCOHT_1"
     seed = 99
     random.seed(seed)
     total = len([path for path in Path(f"./images/{tumor_type}/images").rglob('*.jpg')])
-    sample_size = total
+    sample_size = 50
 
     # Paths
     #image_directory = "/Users/Account/Desktop/AI_project_files/image_clustering/data_sccoht_pure_08-19"
