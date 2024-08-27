@@ -5,11 +5,12 @@ from pathlib import Path
 import shutil
 import torch
 from torchvision import datasets, transforms
+from torchvision.models import resnet50, ResNet50_Weights
 from torch.utils.data import Dataset,DataLoader, Subset
 from PIL import Image, UnidentifiedImageError
 from tqdm import tqdm
 from datetime import datetime
-
+import utils
 
 class FeatureDataset(Dataset):
     def __init__(self, datapath : str,  transform=None):
@@ -59,7 +60,17 @@ def load_feature_data(batch_size,tumor_type,seed, sample_size):
     # valid_loader = DataLoader(valid_dataset, batch_size=3, shuffle=True)
     print(f"Training set size: {len(train_dataset)}")
     return train_loader,filenames,labels
-
+def setup_resnet_model(seed):
+    # # Defines transformations to apply on images
+    # preprocess = transforms.Compose([
+    #     transforms.Resize((224, 224)),  # ResNet expects 224x224 images
+    #     transforms.ToTensor(), # Converts the image to a PyTorch tensor, which also scales the pixel values to the range [0, 1]
+    #     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]), # Normalizes the image tensor using the mean and standard deviation values that were used when training the ResNet model (usually on ImageNet)
+    # ])
+    torch.manual_seed(seed)
+    model = resnet50(weights=ResNet50_Weights.DEFAULT)
+    model.eval()
+    return model
 def load_data(batch_size,tumor_type,seed, sample_size):
 
     shutil.rmtree('./images/DDC_UC_1/images/possibly_undiff',ignore_errors=True)
@@ -103,7 +114,41 @@ def check_for_unopenable_files(image_directory,tumor_type):
 
 if __name__ == "__main__":
     # load_data("vMRT",99,1000)
-    load_feature_data(100,"VMRT",99,100)
-    tumor_type = "DDC_UC_1"
+    # load_feature_data(100,"VMRT",99,100)
+    
+    tumor_type = "vMRT"
+    seed = 99
+
+    utils.set_seed(seed)
+    DEVICE = utils.load_device()
+    size_of_image_dataset = len([path for path in Path(f"./images/{tumor_type}/images").rglob('*.jpg')])
+    size_of_feature_dataset = len([path for path in Path(f"./features/{tumor_type}").rglob('*.npz')])
+    model = setup_resnet_model(seed).to(DEVICE)
+    image_loader,image_filepaths,image_labels = load_data(1,tumor_type,seed,size_of_image_dataset)
+    feature_loader,feature_filepaths,feature_labels = load_feature_data(1,tumor_type,seed,size_of_image_dataset)
+    image_iterator = iter(image_loader)
+    feature_iterator = iter(feature_loader)
+    index = 0
+    
+    while True:
+        if index == size_of_image_dataset:
+            break
+        with torch.no_grad():
+            images = next(image_iterator)[0]
+            saved_features = next(feature_iterator)[0]
+            images = images.to(DEVICE)
+            features = model(images)
+            
+            x = saved_features
+            y = features.cpu()
+            # print('y:',image_filepaths[index],y[0].shape)
+            # print('x:',feature_filepaths[index],x[0].shape)
+            print(torch.linalg.vector_norm(x[0]-y[0]))
+            # for i in range(len(x[0])):
+            #     print(x[0][i].item(),y[0][i].item())
+        index += 1
+    print(image_labels==feature_labels)
+
+    print(size_of_feature_dataset==size_of_image_dataset)
     # check_for_unopenable_files(image_directory = f"./images/{tumor_type}/images",tumor_type=tumor_type)
     # x = Image.open(f"./images/DDC_UC_1/images/undiff/AS15041526_227753du.jpg")

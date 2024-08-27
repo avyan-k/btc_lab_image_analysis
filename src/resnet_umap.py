@@ -43,7 +43,6 @@ import numpy as np
 import pandas as pd
 import random
 import torch
-from torchvision import models, transforms
 from torchvision.models import ResNet50_Weights
 from PIL import Image
 from sklearn.preprocessing import StandardScaler
@@ -57,20 +56,6 @@ from matplotlib.colors import ListedColormap
 # project files
 import loading_data as ld
 import utils
-DEVICE = utils.load_device()
-"""RESNET50"""
-def setup_resnet_model():
-    # # Defines transformations to apply on images
-    # preprocess = transforms.Compose([
-    #     transforms.Resize((224, 224)),  # ResNet expects 224x224 images
-    #     transforms.ToTensor(), # Converts the image to a PyTorch tensor, which also scales the pixel values to the range [0, 1]
-    #     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]), # Normalizes the image tensor using the mean and standard deviation values that were used when training the ResNet model (usually on ImageNet)
-    # ])
-
-    model = models.resnet50(weights=ResNet50_Weights.DEFAULT)
-
-    return model
-
 
 """FEATURE EXTRACTION"""
 def extract_features(image_paths, preprocess, model):
@@ -206,13 +191,14 @@ def get_time():
 if __name__ == "__main__":
     
     # Set up parameters
-    run_id = f"{get_time()[:10]}disk_test"
+    run_id = f"{get_time()[:10]}"
     tumor_type = "vMRT"  
     seed = 99
-    random.seed(seed)
+    utils.set_seed(seed)
+    DEVICE = utils.load_device()
     size_of_image_dataset = len([path for path in Path(f"./images/{tumor_type}/images").rglob('*.jpg')])
     size_of_feature_dataset = len([path for path in Path(f"./features/{tumor_type}").rglob('*.npz')])
-    sample_size = size_of_feature_dataset
+    sample_size = size_of_image_dataset
     batch_size = 100
 
     # Paths
@@ -237,14 +223,14 @@ if __name__ == "__main__":
     np.random.seed(seed) # numpy random seed
 
     # ResNet50 model
-    model = setup_resnet_model()
+    model = ld.setup_resnet_model(seed)
     model.eval()
     print("ResNet50 model setup complete.\n")
     
     # Feature extraction from images --> into array of features for each image
-    save_features = sample_size == size_of_feature_dataset # ONLY save when using entire dataset
-    # image_paths, annotations, features_array = get_and_save_features_array(batch_size, model,save=save_features)
-    image_paths, annotations, features_array = get_features_from_disk(size_of_feature_dataset)
+    save_features = sample_size == size_of_image_dataset # ONLY save when using entire dataset
+    image_paths, annotations, features_array = get_and_save_features_array(batch_size, model,save=save_features)
+    # image_paths, annotations, features_array = get_features_from_disk(size_of_feature_dataset)
     print(f"\nfeatures_array.shape: (num_images, num_features)\n{features_array.shape}\n")
 
     # UMAP dimension reduction with annotations in legend
