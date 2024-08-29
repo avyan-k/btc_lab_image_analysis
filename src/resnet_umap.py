@@ -146,9 +146,9 @@ def kmeans_clustering(umap_embedding, seed, n_clusters):
     return n_clusters, clusters
 
 def plot_umap_for_kmeans(n_clusters, clusters, umap_embedding, umap_kmeans_output_path):
-    # Define a custom colormap with distinct colors for each cluster (max 10 colors, 10 clusters)
-    num_colors = min(n_clusters, 10)  # Ensure we don't exceed the number of available colors
-    colormap = plt.get_cmap('tab10', num_colors)
+    # Define a custom colormap with distinct colors for each cluster (max 20 colors, 20 clusters)
+    num_colors = min(n_clusters, 20)  # Ensure we don't exceed the number of available colors
+    colormap = plt.get_cmap('tab20', num_colors)
     cluster_colors = colormap(range(num_colors))
 
     # Plot UMAP results
