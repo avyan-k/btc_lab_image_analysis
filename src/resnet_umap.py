@@ -192,10 +192,9 @@ if __name__ == "__main__":
     
     # Set up parameters
     run_id = f"{get_time()[:10]}"
-    tumor_type = "vMRT"  
+    tumor_type = "DDC_UC_1"  
     seed = 99
-    utils.set_seed(seed)
-    DEVICE = utils.load_device()
+    DEVICE = utils.load_device(seed)
     size_of_image_dataset = len([path for path in Path(f"./images/{tumor_type}/images").rglob('*.jpg')])
     size_of_feature_dataset = len([path for path in Path(f"./features/{tumor_type}").rglob('*.npz')])
     sample_size = size_of_image_dataset

@@ -1,8 +1,8 @@
 import torch
 import random
 import numpy as np
-def load_device():
-    
+def load_device(seed):
+    set_seed(seed)
     # if a macOs then use mps
     if torch.backends.mps.is_built(): device = torch.device("mps")
     

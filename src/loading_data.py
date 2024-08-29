@@ -118,37 +118,37 @@ if __name__ == "__main__":
     
     tumor_type = "vMRT"
     seed = 99
-
-    utils.set_seed(seed)
-    DEVICE = utils.load_device()
-    size_of_image_dataset = len([path for path in Path(f"./images/{tumor_type}/images").rglob('*.jpg')])
-    size_of_feature_dataset = len([path for path in Path(f"./features/{tumor_type}").rglob('*.npz')])
-    model = setup_resnet_model(seed).to(DEVICE)
-    image_loader,image_filepaths,image_labels = load_data(1,tumor_type,seed,size_of_image_dataset)
-    feature_loader,feature_filepaths,feature_labels = load_feature_data(1,tumor_type,seed,size_of_image_dataset)
-    image_iterator = iter(image_loader)
-    feature_iterator = iter(feature_loader)
-    index = 0
-    
-    while True:
-        if index == size_of_image_dataset:
-            break
-        with torch.no_grad():
-            images = next(image_iterator)[0]
-            saved_features = next(feature_iterator)[0]
-            images = images.to(DEVICE)
-            features = model(images)
+    Image.open(r'images\DDC_UC_1/images/undiff\AS15041526_227753du.jpg')
+    # DEVICE = utils.load_device(seed)
+    # size_of_image_dataset = len([path for path in Path(f"./images/{tumor_type}/images").rglob('*.jpg')])
+    # size_of_feature_dataset = len([path for path in Path(f"./features/{tumor_type}").rglob('*.npz')])
+    # model = setup_resnet_model(seed).to(DEVICE)
+    # image_loader,image_filepaths,image_labels = load_data(1,tumor_type,seed,size_of_image_dataset)
+    # feature_loader,feature_filepaths,feature_labels = load_feature_data(1,tumor_type,seed,size_of_image_dataset)
+    # image_iterator = iter(image_loader)
+    # feature_iterator = iter(feature_loader)
+    # index = 0
+    # total_error = 0
+    # while True:
+    #     if index == size_of_image_dataset:
+    #         break
+    #     with torch.no_grad():
+    #         images = next(image_iterator)[0]
+    #         saved_features = next(feature_iterator)[0]
+    #         images = images.to(DEVICE)
+    #         features = model(images)
             
-            x = saved_features
-            y = features.cpu()
-            # print('y:',image_filepaths[index],y[0].shape)
-            # print('x:',feature_filepaths[index],x[0].shape)
-            print(torch.linalg.vector_norm(x[0]-y[0]))
-            # for i in range(len(x[0])):
-            #     print(x[0][i].item(),y[0][i].item())
-        index += 1
-    print(image_labels==feature_labels)
+    #         x = saved_features
+    #         y = features.cpu()
+    #         # print('y:',image_filepaths[index],y[0].shape)
+    #         # print('x:',feature_filepaths[index],x[0].shape)
+    #         print(index, torch.linalg.vector_norm(x[0]-y[0]))
+    #         total_error += torch.linalg.vector_norm(x[0]-y[0])
+    #         # for i in range(len(x[0])):
+    #         #     print(x[0][i].item(),y[0][i].item())
+    #     index += 1
+    # print(total_error)
+    # print(image_labels==feature_labels)
 
-    print(size_of_feature_dataset==size_of_image_dataset)
     # check_for_unopenable_files(image_directory = f"./images/{tumor_type}/images",tumor_type=tumor_type)
     # x = Image.open(f"./images/DDC_UC_1/images/undiff/AS15041526_227753du.jpg")
