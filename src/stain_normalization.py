@@ -88,7 +88,7 @@ if __name__ == "__main__":
     reference_slide_path = os.path.join(image_directory,'normal','15D16367_D3_247sn.jpg')
     full_dictionary = find_all_cases(image_directory)
     dictionary = {k:v for k,v in list(full_dictionary.items())[:3]}
-    print(dictionary.keys())
+    print(dictionary.keys(), [len(paths) for paths in dictionary.values()])
     result_directory = f"./results/Cases/{tumor_type}"
     Path(result_directory).mkdir(parents=True, exist_ok=True)
     paths = [str(path) for path in Path(image_directory).rglob('*.jpg')][:50]
