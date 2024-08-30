@@ -34,13 +34,10 @@ TO CHANGE
 
 """
 
-print("Loading packages ...")
-
 import os
 import sys
 import re
 import numpy as np
-import pandas as pd
 import random
 import torch
 from torchvision.models import ResNet50_Weights
@@ -48,11 +45,8 @@ from PIL import Image
 from sklearn.preprocessing import StandardScaler
 import umap.umap_ as umap
 import matplotlib.pyplot as plt
-from datetime import datetime
 from pathlib import Path
 from tqdm import tqdm
-from sklearn.cluster import KMeans
-from matplotlib.colors import ListedColormap
 # project files
 import loading_data as ld
 import utils
@@ -97,7 +91,7 @@ def get_and_save_features_array(batch_size, model,save=False):
             np.savez(os.path.join(datapath,tumor_type,annotation,filename),features_array)
     return filepaths, labels, np.array(torch.cat(features_list, dim=0)) # convert list of vectors into numpy array
 
-def get_features_from_disk(size_of_dataset):
+def get_features_from_disk(size_of_dataset,tumor_type,seed,sample_size):
     # Get list of feature vectors for each image
     feature_loader,filepaths,labels = ld.load_feature_data(size_of_dataset,tumor_type,seed,sample_size)
     return filepaths, labels, next(iter(feature_loader))[0].numpy()
@@ -110,7 +104,7 @@ def normalization_features_array(features_array):
 
 
 """UMAP GENERATION - COLORING BASED ON ANNOTATIONS"""
-def generate_umap_annotation(features_scaled, seed, annotations, umap_annotation_output_path,tumor_type):
+def generate_umap_annotation(features_scaled, seed, annotations,tumor_type, save_plot = False, umap_annotation_output_path = ''):
     umap_model = umap.UMAP(n_neighbors=15, min_dist=0.1, metric='euclidean', random_state=seed)
     umap_embedding = umap_model.fit_transform(features_scaled)
 
@@ -122,82 +116,40 @@ def generate_umap_annotation(features_scaled, seed, annotations, umap_annotation
     colors = [annotation_colors[annotation] for annotation in annotations]
     # print(f"\n\n{colors}\n")
 
-    # Generating figure settings
-    plt.figure(figsize=(10, 8))
-    plt.scatter(umap_embedding[:, 0], umap_embedding[:, 1], c=colors, s=5, alpha=0.7)
+    if save_plot:
+        assert umap_annotation_output_path != ''
+        # Generating figure settings
+        plt.figure(figsize=(10, 8))
+        plt.scatter(umap_embedding[:, 0], umap_embedding[:, 1], c=colors, s=5, alpha=0.7)
 
-    #legend
-    handles = [plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=color, markersize=10) for color in ['blue', 'red', 'green']]
-    legend_labels = ['normal', 'undiff', 'well_diff'] if 'DDC_UC' in tumor_type else ['normal', 'tumor']
-    plt.legend(handles, legend_labels, title='Annotations')
+        #legend
+        handles = [plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=color, markersize=10) for color in ['blue', 'red', 'green']]
+        legend_labels = ['normal', 'undiff', 'well_diff'] if 'DDC_UC' in tumor_type else ['normal', 'tumor']
+        plt.legend(handles, legend_labels, title='Annotations')
 
-    plt.title(f'{tumor_type} UMAP Projection')
-    plt.xlabel('UMAP Dimension 1')
-    plt.ylabel('UMAP Dimension 2')
-    plt.savefig(umap_annotation_output_path)
-    plt.show()
+        plt.title(f'{tumor_type} UMAP Projection')
+        plt.xlabel('UMAP Dimension 1')
+        plt.ylabel('UMAP Dimension 2')
+        plt.savefig(umap_annotation_output_path)
+        plt.show()
     return umap_embedding
 
 
-"""KMEANS CLUSTERING ON UMAP PROJECTION"""
-def kmeans_clustering(umap_embedding, seed, n_clusters):
-    kmeans = KMeans(n_clusters=n_clusters, random_state=seed)
-    clusters = kmeans.fit_predict(umap_embedding)
-    return n_clusters, clusters
-
-def plot_umap_for_kmeans(n_clusters, clusters, umap_embedding, umap_kmeans_output_path):
-    # Define a custom colormap with distinct colors for each cluster (max 20 colors, 20 clusters)
-    num_colors = min(n_clusters, 20)  # Ensure we don't exceed the number of available colors
-    colormap = plt.get_cmap('tab20', num_colors)
-    cluster_colors = colormap(range(num_colors))
-
-    # Plot UMAP results
-    plt.figure(figsize=(10, 8))
-    plt.scatter(umap_embedding[:, 0], umap_embedding[:, 1], c=clusters, cmap=ListedColormap(cluster_colors), s=5)
-
-    # legend
-    handles = [plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=cluster_colors[i], markersize=10, label=f'Cluster {i}') for i in range(n_clusters)]
-    plt.legend(handles=handles, title='Clusters')
-
-    plt.title(f'{tumor_type} UMAP Projection with k-means clustering on UMAP embeddings')
-    plt.xlabel('UMAP Dimension 1')
-    plt.ylabel('UMAP Dimension 2')
-    plt.savefig(umap_kmeans_output_path)
-    plt.show()
-    return
-
-def kmeans_clusters_from_umap(umap_embedding, seed, umap_kmeans_output_path, cluster_csv_file_path, image_paths, annotations,n_clusters):
-
-    # clustering from umap_embeddings
-    n_clusters, clusters = kmeans_clustering(umap_embedding, seed, n_clusters)
-
-    plot_umap_for_kmeans(n_clusters, clusters, umap_embedding, umap_kmeans_output_path)
-
-    # save a .csv file with cluster information for each file
-    cluster_info = pd.DataFrame({'ImagePath': image_paths, 'Annotations': annotations,'Cluster': clusters})
-    cluster_info.to_csv(cluster_csv_file_path, index=False)
-    
 
 
-    
-    
-    return
 
-def get_time():
-    now = datetime.now()
-    return now.strftime("%Y-%m-%d %H:%M:%S")
-
+def get_size_of_dataset(tumor_type, extension):
+    return len([path for path in Path(f"./images/{tumor_type}/images").rglob(f'*.{extension}')])
 
 if __name__ == "__main__":
-    
     # Set up parameters
-    run_id = f"{get_time()[:10]}"
+    run_id = f"{utils.get_time()[:10]}"
     tumor_type = "DDC_UC_1"  
     seed = 99
     DEVICE = utils.load_device(seed)
-    size_of_image_dataset = len([path for path in Path(f"./images/{tumor_type}/images").rglob('*.jpg')])
-    size_of_feature_dataset = len([path for path in Path(f"./features/{tumor_type}").rglob('*.npz')])
-    sample_size = size_of_image_dataset
+    size_of_image_dataset = get_size_of_dataset(tumor_type,extension='jpg')
+    size_of_feature_dataset = get_size_of_dataset(tumor_type,extension='npz')
+    sample_size = 100
     batch_size = 100
 
     # Paths
@@ -209,15 +161,11 @@ if __name__ == "__main__":
     
     # Output file names
     umap_annotation_file = f"umap_{tumor_type}_{run_id}_{seed}_{sample_size}_annotation.png"
-    umap_kmeans_file = f"umap_{tumor_type}_{run_id}_{seed}_{sample_size}_kmeans.png"
-    csv_file = f"umap_{tumor_type}_{run_id}_{seed}_{sample_size}.csv"
     pdf_file = f"umap_{tumor_type}_{run_id}_{seed}_{sample_size}.pdf"
 
     # Output file paths
     umap_annotation_outpath_path = os.path.join(results_directory, umap_annotation_file)
-    umap_kmeans_output_path = os.path.join(results_directory, umap_kmeans_file)
-    csv_output_path = os.path.join(results_directory, csv_file)
-    pdf_output_path = os.path.join(results_directory, csv_file)
+    pdf_output_path = os.path.join(results_directory, pdf_file)
     
     # Setting the seeds for reproducibility
     np.random.seed(seed) # numpy random seed
@@ -230,17 +178,14 @@ if __name__ == "__main__":
     # Feature extraction from images --> into array of features for each image
     save_features = sample_size == size_of_image_dataset # ONLY save when using entire dataset
     image_paths, annotations, features_array = get_and_save_features_array(batch_size, model,save=save_features)
-    # image_paths, annotations, features_array = get_features_from_disk(size_of_feature_dataset)
+    # image_paths, annotations, features_array = get_features_from_disk(size_of_dataset,tumor_type,seed,sample_size)
     print(f"\nfeatures_array.shape: (num_images, num_features)\n{features_array.shape}\n")
 
     # UMAP dimension reduction with annotations in legend
     # uses normalized features_array
     print(f"Generating UMAP for the features {features_array.shape[0]} images")
-    umap_embeddings = generate_umap_annotation(normalization_features_array(features_array), seed, annotations, umap_annotation_outpath_path,tumor_type)
-    n_clusters = 3 if 'DDC_UC' in tumor_type else 2      
-    # UMAP dimension reduction with k-means clustering on umap_embeddings in legend
+    umap_embeddings = generate_umap_annotation(normalization_features_array(features_array), seed, annotations,tumor_type, save_plot = True, umap_annotation_output_path = umap_annotation_outpath_path)    
 
-    kmeans_clusters_from_umap(umap_embeddings, seed, umap_kmeans_output_path, csv_output_path, image_paths, annotations, n_clusters)
-
-    print(f"\n\nCompleted at {get_time()}")
+    
+    print(f"\n\nCompleted at {utils.get_time()}")
 

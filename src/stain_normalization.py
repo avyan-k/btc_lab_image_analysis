@@ -7,6 +7,7 @@ from pathlib import Path
 import os
 from tqdm import tqdm
 from PIL import Image
+import random
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from reportlab.lib.styles import getSampleStyleSheet
@@ -34,7 +35,10 @@ def create_case_pdfs(pdf_path, case_dictionnary,normalize = False, normalizer = 
     small_font = styles['BodyText']
     small_font.fontSize = 4  # Smaller font size for filenames
     for case_id, images in tqdm(case_dictionnary.items(),desc="Case",position=1,leave=False):
-        c = canvas.Canvas(os.path.join(pdf_path,f"{case_id}_tiles.pdf"), pagesize=letter,pageCompression=1)
+        file_path = os.path.join(pdf_path,f"{case_id}_tiles.pdf")
+        if normalize:
+            file_path = os.path.join(pdf_path,f"{case_id}_tiles_norm.pdf")
+        c = canvas.Canvas(file_path, pagesize=letter,pageCompression=1)
         c.setFont(small_font.fontName, small_font.fontSize)
         c.setFillColor(black)
         # c.drawString(30, height - 30, f"Cluster {case_id}")
@@ -82,7 +86,9 @@ if __name__ == "__main__":
     image_directory = f"./images/{tumor_type}/images"
 
     reference_slide_path = os.path.join(image_directory,'normal','15D16367_D3_247sn.jpg')
-    dictionary = find_all_cases(image_directory)
+    full_dictionary = find_all_cases(image_directory)
+    dictionary = {k:v for k,v in list(full_dictionary.items())[:3]}
+    print(dictionary.keys())
     result_directory = f"./results/Cases/{tumor_type}"
     Path(result_directory).mkdir(parents=True, exist_ok=True)
     paths = [str(path) for path in Path(image_directory).rglob('*.jpg')][:50]
@@ -97,5 +103,6 @@ if __name__ == "__main__":
     # img = stain_normalize(os.path.join(image_directory,'tumor','S173033_A17_SC11_100959st.jpg'), normalizer)
     # img.show()
     create_case_pdfs(result_directory,dictionary,normalize = True, normalizer=normalizer)
+    create_case_pdfs(result_directory,dictionary,normalize = False)
 
     # norms = stain_normalize(f'images/SCCOHT_1/images/normal/15D16367_D3_247sn.jpg', paths, normalizer)

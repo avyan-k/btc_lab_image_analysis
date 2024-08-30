@@ -2,6 +2,7 @@ images
 features
 results/umap
 results/Cases
+results/Clusters
 __pycache__/
 *.py[cod]
 *$py.class

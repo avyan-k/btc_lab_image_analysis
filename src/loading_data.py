@@ -48,18 +48,18 @@ def load_feature_data(batch_size,tumor_type,seed, sample_size):
     # get full data set 
     train_dataset = FeatureDataset(feature_directory)
     # print(train_dataset.classes,train_dataset.classes[0],train_dataset.classes[1])
-    filenames = [str(path) for path in train_dataset.paths]
+    image_filenames = [str(path.with_suffix('.jpg')) for path in train_dataset.paths]
     labels = train_dataset.labels
     # split dataset
     indices = random.sample(range(len(train_dataset)), min(sample_size,len(train_dataset)))
     train_dataset = Subset(train_dataset, indices)
-    filenames = [filenames[i] for i in indices]
+    filenames = [image_filenames[i] for i in indices]
     labels = [labels[i] for i in indices]
     # print(filenames,labels,sep='\n')  
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
     # valid_loader = DataLoader(valid_dataset, batch_size=3, shuffle=True)
     print(f"Training set size: {len(train_dataset)}")
-    return train_loader,filenames,labels
+    return train_loader,image_filenames,labels
 def setup_resnet_model(seed):
     # # Defines transformations to apply on images
     # preprocess = transforms.Compose([

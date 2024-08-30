@@ -1,6 +1,7 @@
 import torch
 import random
 import numpy as np
+from datetime import datetime
 def load_device(seed):
     set_seed(seed)
     # if a macOs then use mps
@@ -23,3 +24,7 @@ def set_seed(seed):
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.enabled = False
+
+def get_time():
+    now = datetime.now()
+    return now.strftime("%Y-%m-%d %H:%M:%S")
