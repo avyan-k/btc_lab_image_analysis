@@ -44,7 +44,6 @@ def create_case_pdfs(pdf_path, case_dictionnary,normalize = False, normalizer = 
                 img = stain_normalize(image_path,normalizer)
             else:
                 img = Image.open(image_path)
-                
             img.resize(tile_size,Image.LANCZOS)
             c.drawImage(image=ImageReader(img), x=x, y=y, width=tile_size[0], height=tile_size[1])
             c.setFillColor(black)
@@ -73,7 +72,10 @@ def stain_normalize(image_path, normalizer):
     to_transform = cv2.cvtColor(cv2.imread(image_path), cv2.COLOR_BGR2RGB)
     t_to_transform = T(to_transform)
     norm,H,E = normalizer.normalize(I=t_to_transform, stains = False)
-    return transforms.functional.to_pil_image(torch.permute(norm,(2,0,1)),mode = 'RGB')
+    # image = norm.numpy()/255.0
+    # cv2.imshow('image',image)
+    # cv2.waitKey()
+    return transforms.functional.to_pil_image(torch.permute(norm/255.0,(2,0,1)),mode = 'RGB')
 
 if __name__ == "__main__":
     tumor_type = "SCCOHT_1"
@@ -92,6 +94,8 @@ if __name__ == "__main__":
     transforms.Lambda(lambda x: x*255)
     ])
     normalizer.fit(T(normalization_source))
+    # img = stain_normalize(os.path.join(image_directory,'tumor','S173033_A17_SC11_100959st.jpg'), normalizer)
+    # img.show()
     create_case_pdfs(result_directory,dictionary,normalize = True, normalizer=normalizer)
 
     # norms = stain_normalize(f'images/SCCOHT_1/images/normal/15D16367_D3_247sn.jpg', paths, normalizer)
