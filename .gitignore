@@ -2,6 +2,7 @@ images
 features
 results/*.png
 results/*.csv
+results/*.pdf
 __pycache__/
 *.py[cod]
 *$py.class
