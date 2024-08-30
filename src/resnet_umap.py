@@ -204,7 +204,8 @@ if __name__ == "__main__":
     #image_directory = "/Users/Account/Desktop/AI_project_files/image_clustering/data_sccoht_pure_08-19"
     image_directory = f"./images/{tumor_type}/images"
     feature_directory = f"./features/{tumor_type}"
-    results_directory = "./results"
+    results_directory = f"./results/umap"
+    Path(os.path.join(results_directory)).mkdir(parents=True, exist_ok=True)
     
     # Output file names
     umap_annotation_file = f"umap_{tumor_type}_{run_id}_{seed}_{sample_size}_annotation.png"

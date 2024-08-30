@@ -1,7 +1,7 @@
 images
 features
-results/*.png
-results/*.csv
+results/umap
+results/Cases
 __pycache__/
 *.py[cod]
 *$py.class
