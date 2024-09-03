@@ -114,6 +114,8 @@ def generate_umap_annotation(features_scaled, seed, annotations, tumor_type, sav
 def get_size_of_dataset(tumor_type, extension):
     return len([path for path in Path(f"./images/{tumor_type}/images").rglob(f'*.{extension}')])
 
+
+
 if __name__ == "__main__":
     # Set up parameters
     run_id = f"{utils.get_time()[:10]}"
