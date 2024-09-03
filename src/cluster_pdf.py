@@ -101,7 +101,7 @@ def plot_umap_for_kmeans(n_clusters, clusters, umap_embedding, umap_kmeans_outpu
     plt.show()
     return
 if __name__ == "__main__":
-    tumor_type = "SCCOHT_1"
+    tumor_type = "DDC_UC_1"
     run_id = f"{utils.get_time()[:10]}"
     seed = 99
     size_of_feature_dataset = ru.get_size_of_dataset(tumor_type=tumor_type,extension='jpg')

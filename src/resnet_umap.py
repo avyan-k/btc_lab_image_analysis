@@ -149,7 +149,7 @@ if __name__ == "__main__":
     DEVICE = utils.load_device(seed)
     size_of_image_dataset = get_size_of_dataset(tumor_type,extension='jpg')
     size_of_feature_dataset = get_size_of_dataset(tumor_type,extension='npz')
-    sample_size = 100
+    sample_size = size_of_image_dataset
     batch_size = 100
 
     # Paths

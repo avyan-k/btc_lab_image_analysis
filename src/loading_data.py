@@ -44,16 +44,18 @@ def load_feature_data(batch_size,tumor_type,seed, sample_size):
     torch.manual_seed(seed)
     random.seed(seed)
     feature_directory = f"./features/{tumor_type}"
-    print(f"Loading data from: {feature_directory}")
+    image_directory = f"./images/{tumor_type}/images"
+    print(f"Loading data from: {feature_directory}\nImages Filenames from {image_directory}")
     # get full data set 
     train_dataset = FeatureDataset(feature_directory)
     # print(train_dataset.classes,train_dataset.classes[0],train_dataset.classes[1])
-    image_filenames = [str(path.with_suffix('.jpg')) for path in train_dataset.paths]
+    image_filenames = [path for path in Path(image_directory).rglob('*.jpg')]
+    # print(len(image_filenames),len(train_dataset.paths))
     labels = train_dataset.labels
     # split dataset
     indices = random.sample(range(len(train_dataset)), min(sample_size,len(train_dataset)))
     train_dataset = Subset(train_dataset, indices)
-    filenames = [image_filenames[i] for i in indices]
+    image_filenames = [image_filenames[i] for i in indices]
     labels = [labels[i] for i in indices]
     # print(filenames,labels,sep='\n')  
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
