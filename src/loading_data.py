@@ -120,7 +120,7 @@ if __name__ == "__main__":
     
     tumor_type = "vMRT"
     seed = 99
-    Image.open(r'images\DDC_UC_1/images/undiff\AS15041526_227753du.jpg')
+    # Image.open(r'images\DDC_UC_1/images/undiff\AS15041526_227753du.jpg')
     # DEVICE = utils.load_device(seed)
     # size_of_image_dataset = len([path for path in Path(f"./images/{tumor_type}/images").rglob('*.jpg')])
     # size_of_feature_dataset = len([path for path in Path(f"./features/{tumor_type}").rglob('*.npz')])
