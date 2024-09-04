@@ -125,19 +125,6 @@ def generate_umap_from_dataset(tumor_type, seed):
     umap_embedding: 2D UMAP projection of features of each tile
       
     '''
-
-
-if __name__ == "__main__":
-    # Set up parameters
-    run_id = f"{utils.get_time()[:10]}"
-    tumor_type = "vMRT"  
-    seed = 99
-    DEVICE = utils.load_device(seed)
-    size_of_image_dataset = get_size_of_dataset(tumor_type,extension='jpg')
-    size_of_feature_dataset = get_size_of_dataset(tumor_type,extension='npz')
-    sample_size = size_of_image_dataset
-    batch_size = 100
-
     # Paths to directories
     image_directory = f"./images/{tumor_type}/images"
     feature_directory = f"./features/{tumor_type}"
