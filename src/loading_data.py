@@ -40,21 +40,21 @@ class FeatureDataset(Dataset):
         else:
             return tensor.float(), cindex
         
-def load_feature_data(batch_size,tumor_type,seed, sample_size):
-    torch.manual_seed(seed)
-    random.seed(seed)
+def load_feature_data(batch_size,tumor_type, sample = False, sample_size = -1):
     feature_directory = f"./features/{tumor_type}"
-    print(f"Loading data from: {feature_directory}")
+    print(f"\nLoading data from: {feature_directory}")
     # get full data set 
     train_dataset = FeatureDataset(feature_directory)
     # print(train_dataset.classes,train_dataset.classes[0],train_dataset.classes[1])
     image_filenames = [str(path.with_suffix('.jpg')) for path in train_dataset.paths]
     labels = train_dataset.labels
-    # split dataset
-    indices = random.sample(range(len(train_dataset)), min(sample_size,len(train_dataset)))
-    train_dataset = Subset(train_dataset, indices)
-    filenames = [image_filenames[i] for i in indices]
-    labels = [labels[i] for i in indices]
+    if sample:
+        assert sample_size>0
+        # split dataset
+        indices = random.sample(range(len(train_dataset)), min(sample_size,len(train_dataset)))
+        train_dataset = Subset(train_dataset, indices)
+        image_filenames = [image_filenames[i] for i in indices]
+        labels = [labels[i] for i in indices]
     # print(filenames,labels,sep='\n')  
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
     # valid_loader = DataLoader(valid_dataset, batch_size=3, shuffle=True)
@@ -71,14 +71,12 @@ def setup_resnet_model(seed):
     model = resnet50(weights=ResNet50_Weights.DEFAULT)
     model.eval()
     return model
-def load_data(batch_size,tumor_type,seed, sample_size):
+def load_data(batch_size,tumor_type, sample = False, sample_size = -1):
 
     shutil.rmtree('./images/DDC_UC_1/images/possibly_undiff',ignore_errors=True)
     shutil.rmtree('./images/DDC_UC/images/possibly_undiff',ignore_errors=True)
-    torch.manual_seed(seed)
-    random.seed(seed)
     image_directory = f"./images/{tumor_type}/images"
-    print(f"Loading data from: {image_directory}")
+    print(f"\nLoading data from: {image_directory}")
     processing_transforms = transforms.Compose([
         transforms.Resize((224, 224)),  # ResNet expects 224x224 images
         transforms.ToTensor(), # Converts the image to a PyTorch tensor, which also scales the pixel values to the range [0, 1]
@@ -89,11 +87,13 @@ def load_data(batch_size,tumor_type,seed, sample_size):
     # print(train_dataset.classes,train_dataset.classes[0],train_dataset.classes[1])
     filenames = [sample[0] for sample in train_dataset.samples]
     labels = [train_dataset.classes[sample[1]] for sample in train_dataset.samples]     
-    # split dataset
-    indices = random.sample(range(len(train_dataset)), min(sample_size,len(train_dataset)))
-    train_dataset = Subset(train_dataset, indices)
-    filenames = [filenames[i] for i in indices]
-    labels = [labels[i] for i in indices]
+    if sample:
+        assert sample_size>0
+        # split dataset
+        indices = random.sample(range(len(train_dataset)), min(sample_size,len(train_dataset)))
+        train_dataset = Subset(train_dataset, indices)
+        image_filenames = [image_filenames[i] for i in indices]
+        labels = [labels[i] for i in indices]
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
     # valid_loader = DataLoader(valid_dataset, batch_size=3, shuffle=True)
