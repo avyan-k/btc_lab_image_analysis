@@ -42,11 +42,13 @@ class FeatureDataset(Dataset):
         
 def load_feature_data(batch_size,tumor_type, sample = False, sample_size = -1):
     feature_directory = f"./features/{tumor_type}"
-    print(f"\nLoading data from: {feature_directory}")
+    image_directory = f"./images/{tumor_type}/images"
+    print(f"\nLoading data from: {feature_directory}\nImages Filenames from {image_directory}")
     # get full data set 
     train_dataset = FeatureDataset(feature_directory)
     # print(train_dataset.classes,train_dataset.classes[0],train_dataset.classes[1])
-    image_filenames = [str(path.with_suffix('.jpg')) for path in train_dataset.paths]
+    image_filenames = [path for path in Path(image_directory).rglob('*.jpg')]
+    # print(len(image_filenames),len(train_dataset.paths))
     labels = train_dataset.labels
     if sample:
         assert sample_size>0
@@ -118,7 +120,7 @@ if __name__ == "__main__":
     
     tumor_type = "vMRT"
     seed = 99
-    Image.open(r'images\DDC_UC_1/images/undiff\AS15041526_227753du.jpg')
+    # Image.open(r'images\DDC_UC_1/images/undiff\AS15041526_227753du.jpg')
     # DEVICE = utils.load_device(seed)
     # size_of_image_dataset = len([path for path in Path(f"./images/{tumor_type}/images").rglob('*.jpg')])
     # size_of_feature_dataset = len([path for path in Path(f"./features/{tumor_type}").rglob('*.npz')])
