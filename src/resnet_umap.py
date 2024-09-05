@@ -69,10 +69,14 @@ def get_and_save_features_array(batch_size, model, tumor_type, size_of_dataset, 
     return filepaths, labels, np.array(torch.cat(features_list, dim=0)) # convert list of vectors into numpy array
 
 def get_features_from_disk(tumor_type,size_of_dataset,sample_size):
-    print(f"\n Loading features from disk for {sample_size} images out of {size_of_dataset}")
     # feature vectors for each image from saved numpy arrays in disk
-    feature_loader,filepaths,labels = ld.load_feature_data(batch_size=size_of_dataset,tumor_type=tumor_type,sample=size_of_dataset > sample_size, sample_size=sample_size)
-    return filepaths, labels, next(iter(feature_loader))[0].numpy()
+    feature_loader,filepaths,labels = ld.load_feature_data(batch_size=10,tumor_type=tumor_type ,sample=size_of_dataset > sample_size, sample_size=sample_size)
+    features_list = []
+    for feature,_ in tqdm(feature_loader):
+        features_list.append(feature)
+    all_features = np.array(torch.cat(features_list, dim=0))
+    print(f"\n Loading features from disk for {sample_size} images out of {size_of_dataset}")
+    return filepaths, labels, all_features
 
 
 """NORMALIZATION"""
@@ -116,15 +120,22 @@ def generate_umap_annotation(features_scaled, seed, annotations, tumor_type, sav
 def get_size_of_dataset(directory, extension):
     return len([path for path in Path(directory).rglob(f'*.{extension}')])
 
-def generate_umap_from_dataset(tumor_type, seed, sample = False, sample_size = -1):
+def generate_umap_from_dataset(tumor_type, seed, sample = False, sample_size = -1, plot = False):
     '''
-    Takes features extracted from images using RESNET currently in disk and generates UMAP
-    Will always use all available data and will save feature to disk if they do not exist
-    returns feature_info and umap_embedding
-    feature_info: tuple containing image files paths, annotations (e.g. tumor vs normal), and features array
-    umap_embedding: 2D UMAP projection of features of each tile
+    Takes features (extracted from images using RESNET) currently in disk and generates UMAP
+    Will always use all available data and will save features to disk if they do not exist
+    If a sample is needed, set sample to True and specify sample size, otherwise entire dataset will be used
+    If a bUMAP plot should be generated and saved, set plot to True
+
+    returns the following fives lists, all in the same order
+    image_paths: path leading to the image processed
+    annotations: label placed on image (e.g. tumor vs normal)
+    cases: case id of the slide from which the image was generated
+    features_array: features extracted from image
+    umap_embeddings: 2D umap projection of features
       
     '''
+    
     # Paths to directories
     image_directory = f"./images/{tumor_type}/images"
     feature_directory = f"./features/{tumor_type}"
@@ -140,6 +151,11 @@ def generate_umap_from_dataset(tumor_type, seed, sample = False, sample_size = -
     batch_size = 100 # tested to be optimal at 100 batches, should be changed manually
     size_of_image_dataset = get_size_of_dataset(image_directory,extension='jpg')
     size_of_feature_dataset = get_size_of_dataset(feature_directory,extension='npz')
+
+    if not sample: # if we do not sample use entire dataset
+        sample_size = size_of_image_dataset
+    assert sample_size > 0 #after previous check sample size should be a positive number
+        
     # Output file
     sample_size_text = "all" if not sample else sample_size #text to indicate sample size in file name
     umap_annotation_file = f"umap_{tumor_type}_{run_id}_{seed}_{sample_size_text}_annotation.png" # filename
@@ -156,21 +172,24 @@ def generate_umap_from_dataset(tumor_type, seed, sample = False, sample_size = -
         image_paths, annotations, features_array = get_features_from_disk(tumor_type,size_of_dataset= size_of_feature_dataset,sample_size=sample_size)
 
     print(f"\nfeatures_array.shape: (num_images, num_features)\n{features_array.shape}\n")
+    
+    # Cases for each file
+    cases = [ld.get_case(image_path) for image_path in image_paths]
 
     # UMAP dimension reduction on normalized features_array and coloring by annotations
     print(f"\nGenerating UMAP for the features of {features_array.shape[0]} images ...")
-    umap_embeddings = generate_umap_annotation(normalization_features_array(features_array), seed, annotations,tumor_type, save_plot = True, umap_annotation_output_path = umap_annotation_outpath_path) 
+    umap_embeddings = generate_umap_annotation(normalization_features_array(features_array), seed, annotations,tumor_type, save_plot = plot, umap_annotation_output_path = umap_annotation_outpath_path) 
 
-    print(f"\nUMAP generation ompleted at {utils.get_time()}")
+    print(f"\nUMAP generation completed at {utils.get_time()}")
 
-    return (image_paths,annotations,features_array), umap_embeddings
+    return image_paths, annotations, cases, features_array, umap_embeddings
 
 
 
 if __name__ == "__main__":
     seed = 99
     DEVICE = utils.load_device(seed)
-    generate_umap_from_dataset(tumor_type="vMRT", seed = seed)
+    generate_umap_from_dataset(tumor_type="vMRT", seed = seed,plot=True)
     exit
     # # Set up parameters
     # run_id = f"{utils.get_time()[:10]}"

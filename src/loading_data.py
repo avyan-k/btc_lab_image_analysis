@@ -39,8 +39,12 @@ class FeatureDataset(Dataset):
             return self.transform(tensor).float(), cindex
         else:
             return tensor.float(), cindex
-        
-def load_feature_data(batch_size,tumor_type, sample = False, sample_size = -1):
+
+
+def load_feature_data(batch_size,tumor_type,sample = False, sample_size = -1):
+    '''
+    sample: return a subset of the data, sample_size must be specified
+    '''
     feature_directory = f"./features/{tumor_type}"
     image_directory = f"./images/{tumor_type}/images"
     print(f"\nLoading data from: {feature_directory}\nImages Filenames from {image_directory}")
@@ -101,7 +105,6 @@ def load_data(batch_size,tumor_type, sample = False, sample_size = -1):
     # valid_loader = DataLoader(valid_dataset, batch_size=3, shuffle=True)
     print(f"Training set size: {len(train_dataset)}")
     return train_loader,filenames,labels
-
 def check_for_unopenable_files(image_directory,tumor_type):
     with open(file=f"./results/{tumor_type}_corrupted_files.txt",mode='w') as f:
         time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -112,8 +115,11 @@ def check_for_unopenable_files(image_directory,tumor_type):
                 Image.open(image_path)
             except(UnidentifiedImageError):
                 f.write(str(image_path))
-
-
+def get_case(path:str) -> str:
+    '''
+    extracts case from image filepath, assuming "case" is everything before the last _ for the filename
+    '''
+    return os.path.basename(path).rsplit('_', 1)[0]
 if __name__ == "__main__":
     # load_data("vMRT",99,1000)
     # load_feature_data(100,"VMRT",99,100)
