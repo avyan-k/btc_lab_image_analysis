@@ -70,25 +70,37 @@ def get_and_save_features_array(batch_size, model, tumor_type, size_of_dataset, 
 
 def get_features_from_disk(tumor_type,size_of_dataset,sample_size):
     # feature vectors for each image from saved numpy arrays in disk
-    feature_loader,filepaths,labels = ld.load_feature_data(batch_size=10,tumor_type=tumor_type ,sample=size_of_dataset > sample_size, sample_size=sample_size)
-    features_list = []
-    for feature,_ in tqdm(feature_loader):
-        features_list.append(feature)
-    all_features = np.array(torch.cat(features_list, dim=0))
+    feature_loader,filepaths, classes = ld.load_feature_data(batch_size=1,tumor_type=tumor_type ,sample=size_of_dataset > sample_size, sample_size=sample_size)
     print(f"\n Loading features from disk for {sample_size} images out of {size_of_dataset}")
-    return filepaths, labels, all_features, feature_loader
-
-
+    return filepaths, feature_loader, classes
+def get_features_from_loader(feature_loader, classes):
+    '''
+    Loads all features to memory from loader and returns them along with annotations
+    Arguments
+    feature_loader: unshuffled DataLoader containing features
+    classes: list of possible annotations sorted in same order as feature_loader (will depend on dataset from which it was loader, but should normally be sorted alphabetically)
+    return
+    features_list
+    annotation_list
+    '''
+    features_list = []
+    annotation_list = []
+    print(f"Loading features of {len(feature_loader)} images")
+    for feature,annotation in tqdm(feature_loader):
+        features_list.append(feature)
+        annotation_list.append(classes[annotation])
+    return torch.cat(features_list, dim=0).numpy(),annotation_list
 """NORMALIZATION"""
-def normalization_features_array(features_array):
-    scaler = StandardScaler()
+def feature_normalizer():
     # fit: computes means and std for each vector of features in array
     # transform: normalizes so that each vector has a mean=0 and std=1
-    return scaler.fit_transform(features_array)
+    return StandardScaler()
 
 
 """UMAP GENERATION - COLORING BASED ON ANNOTATIONS"""
-def generate_umap_annotation(features_scaled, seed, annotations, tumor_type, save_plot = False, umap_annotation_output_path = ''):
+def generate_umap_annotation(feature_loader,seed, tumor_type, save_plot = False, umap_annotation_output_path = '', tumor_classes = ['normal', 'tumor'], normalizer = None):
+    features_array, annotations = get_features_from_loader(feature_loader,classes=tumor_classes)
+    features_scaled = normalizer.fit_transform(features_array)
     umap_model = umap.UMAP(n_neighbors=15, min_dist=0.1, metric='euclidean', random_state=seed)
     umap_embedding = umap_model.fit_transform(features_scaled)
 
@@ -163,25 +175,24 @@ def generate_umap_from_dataset(tumor_type, seed, sample = False, sample_size = -
 
     # get features
     if size_of_image_dataset != size_of_feature_dataset: # assume features have not been extracted
-        print(f"Feature extraction directory {feature_directory} not found, launching feature extraction")
+        print(f"Feature extraction directory {feature_directory} not found or incomplete, launching feature extraction")
         print("\nSetting up ResNet model ...")
         model = ld.setup_resnet_model(seed)
         model.eval()
         get_and_save_features_array(batch_size=batch_size, model= model,tumor_type=tumor_type, size_of_dataset = size_of_image_dataset,sample_size = sample_size, save=True)
-    image_paths, annotations, features_array, features_loader = get_features_from_disk(tumor_type,size_of_dataset= size_of_feature_dataset,sample_size=sample_size)
-
-    print(f"\nfeatures_array.shape: (num_images, num_features)\n{features_array.shape}\n")
-    
+    image_paths, feature_loader, tumor_classes = get_features_from_disk(tumor_type,size_of_dataset= size_of_feature_dataset,sample_size=sample_size)
+    print(f"Annotations found in dataset:",*tumor_classes)
+        
     # Cases for each file
     cases = [ld.get_case(image_path) for image_path in image_paths]
 
     # UMAP dimension reduction on normalized features_array and coloring by annotations
-    print(f"\nGenerating UMAP for the features of {features_array.shape[0]} images ...")
-    umap_embeddings = generate_umap_annotation(normalization_features_array(features_array), seed, annotations,tumor_type, save_plot = plot, umap_annotation_output_path = umap_annotation_outpath_path) 
+    print(f"\nGenerating UMAP for the features of {sample_size} images ...")
+    umap_embeddings = generate_umap_annotation(feature_loader, seed,tumor_type, save_plot = plot, umap_annotation_output_path = umap_annotation_outpath_path, tumor_classes= tumor_classes ,normalizer = feature_normalizer()) 
 
     print(f"\nUMAP generation completed at {utils.get_time()}")
 
-    return image_paths, annotations, cases, features_loader, umap_embeddings
+    return image_paths, cases, feature_loader, umap_embeddings
 
 
 
