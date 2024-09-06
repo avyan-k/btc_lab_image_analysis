@@ -13,24 +13,21 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
-def find_cases(image_directory, all_cases = True, cases = None):
-    if all_cases:
-        paths = [path for path in Path(image_directory).rglob('*.jpg')]
-        cases = list(set([path.name.split('.')[0].split('_')[0] if len(path.name.split('.')[0].split('_')) <= 2 else path.name.split('.')[0].split('_')[0]+'_'+path.name.split('.')[0].split('_')[1] for path in paths]))
-    else:
-        assert cases is not None
+def find_cases(image_directory):
+    paths = [path for path in Path(image_directory).rglob('*.jpg')]
+    cases = list(set([path.name.split('.')[0].split('_')[0] if len(path.name.split('.')[0].split('_')) <= 2 else path.name.split('.')[0].split('_')[0]+'_'+path.name.split('.')[0].split('_')[1] for path in paths]))
     # case_dict = {case:sorted([os.path.join(path.parent,path.name[:-6]+path.name[-4:]) for path in paths if case in path.name]) for case in tqdm(cases,desc="Case",position=1,leave=False)}
     case_dict = {case:sorted([os.path.join(path.parent,path.name) for path in paths if case in path.name]) for case in tqdm(cases,desc="Case",position=1,leave=False)}
     print()
     # for path in tqdm(paths):
     #     os.rename(os.path.join(path.parent,path.name),os.path.join(path.parent,path.name[:-6]+path.name[-4:]))
-    return pd.DataFrame(dict([(k, pd.Series(v)) for k, v in case_dict.items()]))
+    return case_dict
 # Create a PDF with clustered images
-def create_case_pdfs_by_case(pdf_directory, case_dataframe, normalize = False, normalizer = None, normalization_source_path = '', source_type = ''):
+def create_case_pdfs_by_case(pdf_directory, case_dict, normalize = False, normalizer = None, normalization_source_path = '', source_type = ''):
     if normalize:
         source_file = os.path.split(normalization_source_path)[1][:-4] #extract case name from path
         assert normalizer is not None and os.path.isfile(normalization_source_path) and source_type != ''
-    for case_id, image_paths in tqdm(case_dataframe.items(),desc="Case",position=1,leave=False, total=len(case_dataframe.columns)):
+    for case_id, image_paths in tqdm(case_dict.items(),desc="Case",position=1,leave=False, total=len(case_dict.keys())):
         pdf_path = os.path.join(pdf_directory,f'{case_id}_tiles.pdf')
         if normalize:
             pdf_path = os.path.join(pdf_directory,f'{case_id}_tiles_normalized_with_{source_file}.pdf')
@@ -45,7 +42,6 @@ def create_case_pdfs_by_case(pdf_directory, case_dataframe, normalize = False, n
                 pdf.savefig(fig, dpi=300)  # Increase DPI to 300 for better quality
                 plt.close(fig)
 
-                image_paths = image_paths[image_paths.notna()]
                 images_per_page = 10 * 10
                 num_pages = len(image_paths) // images_per_page + int(len(image_paths) % images_per_page > 0)
                 for page in tqdm(range (num_pages),desc="Page",position=2,leave=False):
@@ -55,7 +51,7 @@ def create_case_pdfs_by_case(pdf_directory, case_dataframe, normalize = False, n
                     # Flatten the axes array for easy iteration
                     axes = axes.flatten()
                     
-                    page_image_paths = list(image_paths[page * images_per_page:(page + 1) * images_per_page])
+                    page_image_paths = image_paths[page * images_per_page:(page + 1) * images_per_page]
                     for i in range(len(page_image_paths)):
                         image_path = page_image_paths[i]
                         ax = axes[i]
@@ -78,7 +74,7 @@ def create_case_pdfs_by_case(pdf_directory, case_dataframe, normalize = False, n
                     plt.close(fig)
             # print(f"Clusters saved to {pdf_path} as a PDF.")
     return
-def create_case_pdfs(pdf_directory, case_dataframe, pages_per_case = -1, normalize = False, normalizer = None, normalization_source_path = '', source_type = ''):
+def create_case_pdfs(pdf_directory, case_dict, pages_per_case = -1, normalize = False, normalizer = None, normalization_source_path = '', source_type = ''):
     
     pdf_path = os.path.join(pdf_directory,f'sample_cases.pdf')
     if normalize:
@@ -94,13 +90,8 @@ def create_case_pdfs(pdf_directory, case_dataframe, pages_per_case = -1, normali
             ax.imshow(Image.open(normalization_source_path))
         pdf.savefig(fig, dpi=300)  # Increase DPI to 300 for better quality
         plt.close(fig)
-        for case_id, image_paths in tqdm(case_dataframe.items(),desc="Case",position=1,leave=False, total=len(case_dataframe.columns)):
+        for case_id, image_paths in tqdm(case_dict.items(),desc="Case",position=1,leave=False, total=len(case_dict.keys())):
 
-                # images = [Image.open(image) for image in list(image_paths[image_paths.notna()])]
-                # images[0].save(
-                #     pdf_path, "PDF" ,resolution=100.0, save_all=True, append_images=images[1:]
-                # )
-                image_paths = image_paths[image_paths.notna()]
                 images_per_page = 10 * 10
 
                 num_pages = len(image_paths) // images_per_page + int(len(image_paths) % images_per_page > 0)
@@ -113,7 +104,7 @@ def create_case_pdfs(pdf_directory, case_dataframe, pages_per_case = -1, normali
                     # Flatten the axes array for easy iteration
                     axes = axes.flatten()
                     # Get the images for the current page
-                    page_image_paths = list(image_paths[page * images_per_page:(page + 1) * images_per_page])
+                    page_image_paths = image_paths[page * images_per_page:(page + 1) * images_per_page]
                     for i in range(len(page_image_paths)):
                         image_path = page_image_paths[i]
                         ax = axes[i]
@@ -187,80 +178,80 @@ if __name__ == "__main__":
 # r'images\SCCOHT_1\images\tumor\PCS281092299G_92675st.jpg']
 #     norm_paths = [r'images\SCCOHT_1\normalized_images\tumor\AS17036383_A49_58057st.jpg',
 # r'images\SCCOHT_1\normalized_images\tumor\PCS281092299G_92675st.jpg']
-    with open(file=f"./results/{tumor_type}_unnormalizable_images.txt",mode='w') as f:
-        f.write(f"Checked on {utils.get_time()}\n")
-        for i,path in enumerate(tqdm(image_paths)):
-            if not os.path.isfile(norm_paths[i]):
-                try:
-                    stain_normalize(path,normalizer,save=True, save_path = norm_paths[i])
-                except:
-                    f.write(str(path)+'\n')
+    # with open(file=f"./results/{tumor_type}_unnormalizable_images.txt",mode='w') as f:
+    #     f.write(f"Checked on {utils.get_time()}\n")
+    #     for i,path in enumerate(tqdm(image_paths)):
+    #         if not os.path.isfile(norm_paths[i]):
+    #             try:
+    #                 stain_normalize(path,normalizer,save=True, save_path = norm_paths[i])
+    #             except:
+    #                 f.write(str(path)+'\n')
 
 
 
-    # normalization_dictionnary = { 
-    #     'SCCOHT_1' : ({
-    #         'bright' : '15D16367_D3_247sn.jpg',
-    #         'dark' : 'GS986_1B_78169st.jpg',
-    #         'indigo' : '22B33007_A3_34208st.jpg'
-    #     },['Q121348773B','AS21032651_D1','0079682','H107043','22B33007_A3','GS986_1B','524996_A4']),
-    #     'vMRT' : ({
-    #         'dark' : 'AC23029182_A1_1_52vn.jpg'
-    #     },[]),
-    #     'DDC_UC_1' : ({
+    normalization_dictionnary = { 
+        'SCCOHT_1' : ({
+            'bright' : '15D16367_D3_247sn.jpg',
+            'dark' : 'GS986_1B_78169st.jpg',
+            'indigo' : '22B33007_A3_34208st.jpg'
+        },['Q121348773B','AS21032651_D1','0079682','H107043','22B33007_A3','GS986_1B','524996_A4']),
+        'vMRT' : ({
+            'dark' : 'AC23029182_A1_1_52vn.jpg'
+        },[]),
+        'DDC_UC_1' : ({
 
-    #     },[])
-    # }
+        },[])
+    }
 
-    # case_df = find_cases(image_directory)
-    # create_case_pdfs_by_case(result_directory,case_df,normalize = False)
+    case_dict = find_cases(image_directory)
+    create_case_pdfs_by_case(result_directory,case_dict,normalize = False)
 
-    # references, samples_cases = normalization_dictionnary[tumor_type]
-    # case_df = find_cases(image_directory,all_cases=False, cases=samples_cases)
+    references, samples_cases = normalization_dictionnary[tumor_type]
+    case_dict = find_cases(image_directory)
 
-    # normalizer = torchstain.normalizers.MacenkoNormalizer(backend='torch')
-    # T = transforms.Compose([
-    # transforms.ToTensor(),
-    # transforms.Resize((256,256),antialias=True),
-    # transforms.Lambda(lambda x: x*255)
-    # ])
-    # if not os.path.isfile(os.path.join(result_directory,f'sample_cases.pdf')):
-    #     create_case_pdfs(result_directory,case_df,pages_per_case=page_sampled_per_case,normalize = False)     
-    # for reference_type, reference_slide in references.items():
-    #     annotation_prefix = reference_slide.split('.')[0][-1]
-    #     if tumor_type in "DDC_UC":
-    #         assert annotation_prefix in 'nuw' # annotation is either normal, undifferentiated or well-differentiated
-    #         match annotation_prefix:
-    #             case 'n': annotation = 'normal'
-    #             case 'u': annotation = 'undiff'
-    #             case 'w': annotation = 'well_diff'
-    #     else:
-    #         assert annotation_prefix in 'nt' # annotation is either tumor or normal
-    #         annotation = 'normal' if annotation_prefix == 'n' else 'tumor'
-    #     reference_slide_path = os.path.join(image_directory,annotation, reference_slide)
-    #     # print(reference_slide_path)
-    #     normalization_source = cv2.cvtColor(cv2.imread(reference_slide_path), cv2.COLOR_BGR2RGB)
-    #     normalizer.fit(T(normalization_source))
+    normalizer = torchstain.normalizers.MacenkoNormalizer(backend='torch')
+    T = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Resize((256,256),antialias=True),
+    transforms.Lambda(lambda x: x*255)
+    ])
+    if not os.path.isfile(os.path.join(result_directory,f'sample_cases.pdf')):
+        create_case_pdfs(result_directory,case_dict,pages_per_case=page_sampled_per_case,normalize = False)     
+    for reference_type, reference_slide in references.items():
+        annotation_prefix = reference_slide.split('.')[0][-1]
+        if tumor_type in "DDC_UC":
+            assert annotation_prefix in 'nuw' # annotation is either normal, undifferentiated or well-differentiated
+            match annotation_prefix:
+                case 'n': annotation = 'normal'
+                case 'u': annotation = 'undiff'
+                case 'w': annotation = 'well_diff'
+        else:
+            assert annotation_prefix in 'nt' # annotation is either tumor or normal
+            annotation = 'normal' if annotation_prefix == 'n' else 'tumor'
+        reference_slide_path = os.path.join(image_directory,annotation, reference_slide)
+        # print(reference_slide_path)
+        normalization_source = cv2.cvtColor(cv2.imread(reference_slide_path), cv2.COLOR_BGR2RGB)
+        normalizer.fit(T(normalization_source))
 
-    #     if not os.path.isfile(os.path.join(result_directory,f'sample_cases_normalized_with_{reference_type}_reference.pdf')):
-    #         create_case_pdfs(result_directory,case_df,pages_per_case=page_sampled_per_case,normalize = True, normalizer=normalizer,normalization_source_path=reference_slide_path,source_type=reference_type)
+        if not os.path.isfile(os.path.join(result_directory,f'sample_cases_normalized_with_{reference_type}_reference.pdf')):
+            create_case_pdfs(result_directory,case_dict,pages_per_case=page_sampled_per_case,normalize = True, normalizer=normalizer,normalization_source_path=reference_slide_path,source_type=reference_type)
     
 
     
 
     
     
-    # # paths = [str(path) for path in Path(image_directory).rglob('*.jpg')][:50]
+    # paths = [str(path) for path in Path(image_directory).rglob('*.jpg')][:50]
     
     
     
     
-    # # img = stain_normalize(os.path.join(image_directory,'tumor','S173033_A17_SC11_100959st.jpg'), normalizer)
-    # # img.show()
-    # # create_case_pdfs(result_directory,case_df,normalize = False)
+    # img = stain_normalize(os.path.join(image_directory,'tumor','S173033_A17_SC11_100959st.jpg'), normalizer)
+    # img.show()
+    # create_case_pdfs(result_directory,case_df,normalize = False)
 
     
-    # # 
+    # 
     
 
-    # # norms = stain_normalize(f'images/SCCOHT_1/images/normal/15D16367_D3_247sn.jpg', paths, normalizer)
+    # norms = stain_normalize(f'images/SCCOHT_1/images/normal/15D16367_D3_247sn.jpg', paths, normalizer)

@@ -76,7 +76,7 @@ def get_features_from_disk(tumor_type,size_of_dataset,sample_size):
         features_list.append(feature)
     all_features = np.array(torch.cat(features_list, dim=0))
     print(f"\n Loading features from disk for {sample_size} images out of {size_of_dataset}")
-    return filepaths, labels, all_features
+    return filepaths, labels, all_features, feature_loader
 
 
 """NORMALIZATION"""
@@ -167,9 +167,8 @@ def generate_umap_from_dataset(tumor_type, seed, sample = False, sample_size = -
         print("\nSetting up ResNet model ...")
         model = ld.setup_resnet_model(seed)
         model.eval()
-        image_paths, annotations, features_array = get_and_save_features_array(batch_size=batch_size, model= model,tumor_type=tumor_type, size_of_dataset = size_of_image_dataset,sample_size = sample_size, save=True)
-    else:
-        image_paths, annotations, features_array = get_features_from_disk(tumor_type,size_of_dataset= size_of_feature_dataset,sample_size=sample_size)
+        get_and_save_features_array(batch_size=batch_size, model= model,tumor_type=tumor_type, size_of_dataset = size_of_image_dataset,sample_size = sample_size, save=True)
+    image_paths, annotations, features_array, features_loader = get_features_from_disk(tumor_type,size_of_dataset= size_of_feature_dataset,sample_size=sample_size)
 
     print(f"\nfeatures_array.shape: (num_images, num_features)\n{features_array.shape}\n")
     
@@ -182,7 +181,7 @@ def generate_umap_from_dataset(tumor_type, seed, sample = False, sample_size = -
 
     print(f"\nUMAP generation completed at {utils.get_time()}")
 
-    return image_paths, annotations, cases, features_array, umap_embeddings
+    return image_paths, annotations, cases, features_loader, umap_embeddings
 
 
 
