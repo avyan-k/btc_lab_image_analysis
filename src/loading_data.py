@@ -44,6 +44,10 @@ class FeatureDataset(Dataset):
 def load_feature_data(batch_size,tumor_type,sample = False, sample_size = -1):
     '''
     sample: return a subset of the data, sample_size must be specified
+    returns
+    feature_loader: DataLoader loading features
+    image_filenames: filename of image being extracted
+    Classes: list of possible annotations
     '''
     feature_directory = f"./features/{tumor_type}"
     image_directory = f"./images/{tumor_type}/images"
@@ -53,19 +57,19 @@ def load_feature_data(batch_size,tumor_type,sample = False, sample_size = -1):
     # print(train_dataset.classes,train_dataset.classes[0],train_dataset.classes[1])
     image_filenames = [path for path in Path(image_directory).rglob('*.jpg')]
     # print(len(image_filenames),len(train_dataset.paths))
-    labels = train_dataset.labels
+    # labels = train_dataset.labels
     if sample:
         assert sample_size>0
         # split dataset
         indices = random.sample(range(len(train_dataset)), min(sample_size,len(train_dataset)))
         train_dataset = Subset(train_dataset, indices)
         image_filenames = [image_filenames[i] for i in indices]
-        labels = [labels[i] for i in indices]
+        # labels = [labels[i] for i in indices]
     # print(filenames,labels,sep='\n')  
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
     # valid_loader = DataLoader(valid_dataset, batch_size=3, shuffle=True)
     print(f"Training set size: {len(train_dataset)}")
-    return train_loader,image_filenames,labels
+    return train_loader,image_filenames, train_dataset.classes
 def setup_resnet_model(seed):
     # # Defines transformations to apply on images
     processing_transforms = transforms.Compose([
