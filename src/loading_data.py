@@ -54,6 +54,7 @@ def load_feature_data(batch_size,tumor_type,sample = False, sample_size = -1):
     print(f"\nLoading data from: {feature_directory}\nImages Filenames from {image_directory}")
     # get full data set 
     train_dataset = FeatureDataset(feature_directory)
+    classes = train_dataset.classes
     # print(train_dataset.classes,train_dataset.classes[0],train_dataset.classes[1])
     image_filenames = [path for path in Path(image_directory).rglob('*.jpg')]
     # print(len(image_filenames),len(train_dataset.paths))
@@ -69,7 +70,7 @@ def load_feature_data(batch_size,tumor_type,sample = False, sample_size = -1):
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
     # valid_loader = DataLoader(valid_dataset, batch_size=3, shuffle=True)
     print(f"Training set size: {len(train_dataset)}")
-    return train_loader,image_filenames, train_dataset.classes
+    return train_loader,image_filenames, classes
 def setup_resnet_model(seed):
     # # Defines transformations to apply on images
     processing_transforms = transforms.Compose([

@@ -45,7 +45,6 @@ import utils
 """FEATURE EXTRACTION"""
 def get_and_save_features_array(batch_size, model,transforms, tumor_type, size_of_dataset, sample_size, save=False):
     image_loader,filepaths,labels = ld.load_data(batch_size,tumor_type,transforms=transforms,sample=size_of_dataset > sample_size, sample_size=sample_size)
-    transforms = transforms.to(DEVICE)
     model = model.to(DEVICE)
     # get features for images in image_loader
     features_list = []
@@ -53,7 +52,6 @@ def get_and_save_features_array(batch_size, model,transforms, tumor_type, size_o
     for images,annotations in tqdm(image_loader):
         with torch.no_grad():
             images = images.to(DEVICE)
-            images = transforms(images)
             features = model(images)
             features_list.append(features.cpu()) # list of feature vectors for each image
     all_features = np.array(torch.cat(features_list, dim=0))
@@ -62,6 +60,7 @@ def get_and_save_features_array(batch_size, model,transforms, tumor_type, size_o
     if save: #TODO test this
         datapath = "./features"
         Path(os.path.join(datapath,tumor_type)).mkdir(parents=True, exist_ok=True)
+        print(f"Saving features")
         for annotation_type in list(set(labels)):
             Path(os.path.join(datapath,tumor_type,annotation_type)).mkdir(parents=True, exist_ok=True)
         for i,features_array in enumerate(tqdm(all_features)):
