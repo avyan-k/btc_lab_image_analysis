@@ -1,0 +1,4 @@
+{
+    "include": ["**/*.py"],
+    "exclude": ["**/site-packages/**", "**/distutils/**", "**/node_modules/**", "**/__pycache__/**","**/images","**/features","**/.venv","**/tempCodeRunnerFile.py"]
+}

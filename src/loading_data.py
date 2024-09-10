@@ -68,28 +68,24 @@ def load_feature_data(batch_size,tumor_type,sample = False, sample_size = -1):
     return train_loader,image_filenames,labels
 def setup_resnet_model(seed):
     # # Defines transformations to apply on images
-    # preprocess = transforms.Compose([
-    #     transforms.Resize((224, 224)),  # ResNet expects 224x224 images
-    #     transforms.ToTensor(), # Converts the image to a PyTorch tensor, which also scales the pixel values to the range [0, 1]
-    #     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]), # Normalizes the image tensor using the mean and standard deviation values that were used when training the ResNet model (usually on ImageNet)
-    # ])
-    torch.manual_seed(seed)
-    model = resnet50(weights=ResNet50_Weights.DEFAULT)
-    model.eval()
-    return model
-def load_data(batch_size,tumor_type, sample = False, sample_size = -1):
-
-    shutil.rmtree('./images/DDC_UC_1/images/possibly_undiff',ignore_errors=True)
-    shutil.rmtree('./images/DDC_UC/images/possibly_undiff',ignore_errors=True)
-    image_directory = f"./images/{tumor_type}/images"
-    print(f"\nLoading data from: {image_directory}")
     processing_transforms = transforms.Compose([
         transforms.Resize((224, 224)),  # ResNet expects 224x224 images
         transforms.ToTensor(), # Converts the image to a PyTorch tensor, which also scales the pixel values to the range [0, 1]
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]), # Normalizes the image tensor using the mean and standard deviation values that were used when training the ResNet model (usually on ImageNet)
     ])
+    torch.manual_seed(seed)
+    model = resnet50(weights=ResNet50_Weights.DEFAULT)
+    model.eval()
+    return model,processing_transforms
+def load_data(batch_size,tumor_type,transforms, sample = False, sample_size = -1):
+
+    shutil.rmtree('./images/DDC_UC_1/images/possibly_undiff',ignore_errors=True)
+    shutil.rmtree('./images/DDC_UC/images/possibly_undiff',ignore_errors=True)
+    image_directory = f"./images/{tumor_type}/images"
+    print(f"\nLoading data from: {image_directory}")
+
     # get full data set 
-    train_dataset = datasets.ImageFolder(image_directory,transform=processing_transforms)
+    train_dataset = datasets.ImageFolder(image_directory,transform=transforms)
     # print(train_dataset.classes,train_dataset.classes[0],train_dataset.classes[1])
     filenames = [sample[0] for sample in train_dataset.samples]
     labels = [train_dataset.classes[sample[1]] for sample in train_dataset.samples]     
@@ -98,7 +94,7 @@ def load_data(batch_size,tumor_type, sample = False, sample_size = -1):
         # split dataset
         indices = random.sample(range(len(train_dataset)), min(sample_size,len(train_dataset)))
         train_dataset = Subset(train_dataset, indices)
-        image_filenames = [image_filenames[i] for i in indices]
+        image_filenames = [image_filenames[i] for i in indices] # type: ignore
         labels = [labels[i] for i in indices]
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)

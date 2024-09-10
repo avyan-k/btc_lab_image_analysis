@@ -8,7 +8,7 @@ import pandas as pd
 from matplotlib.colors import ListedColormap
 
 import utils
-import resnet_umap as ru
+import umap_features as ru
 
 def save_clusters_to_pdf(cluster_info, pdf_output_path):
     """
@@ -61,7 +61,7 @@ def save_clusters_to_pdf(cluster_info, pdf_output_path):
                     ax.set_title(base_filename, fontsize=3)  # Smaller font size
                 
                 # Hide any remaining empty subplots
-                for j in range(i + 1, len(axes)):
+                for j in range(i + 1, len(axes)): # type: ignore
                     axes[j].axis('off')
 
                 # Save the current figure to the PDF with high DPI
@@ -104,7 +104,8 @@ if __name__ == "__main__":
     tumor_type = "SCCOHT_1"
     run_id = f"{utils.get_time()[:10]}"
     seed = 99
-    size_of_feature_dataset = ru.get_size_of_dataset(tumor_type=tumor_type,extension='jpg')
+    feature_directory = f"./features/{tumor_type}"
+    size_of_feature_dataset = ru.get_size_of_dataset(directory=feature_directory, extension='jpg')
     sample_size = 100
     batch_size = 100
 

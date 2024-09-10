@@ -24,6 +24,7 @@ def find_cases(image_directory):
     return case_dict
 # Create a PDF with clustered images
 def create_case_pdfs_by_case(pdf_directory, case_dict, normalize = False, normalizer = None, normalization_source_path = '', source_type = ''):
+    source_file = ''
     if normalize:
         source_file = os.path.split(normalization_source_path)[1][:-4] #extract case name from path
         assert normalizer is not None and os.path.isfile(normalization_source_path) and source_type != ''
@@ -67,7 +68,7 @@ def create_case_pdfs_by_case(pdf_directory, case_dict, normalize = False, normal
 
                         ax.set_title(base_filename, fontsize=3)  # Smaller font size
 
-                    for j in range(i + 1, len(axes)):
+                    for j in range(i + 1, len(axes)): # type: ignore
                         axes[j].axis('off')
                     # Save the current figure to the PDF with high DPI
                     pdf.savefig(fig, dpi=300)  # Increase DPI to 300 for better quality
@@ -75,7 +76,7 @@ def create_case_pdfs_by_case(pdf_directory, case_dict, normalize = False, normal
             # print(f"Clusters saved to {pdf_path} as a PDF.")
     return
 def create_case_pdfs(pdf_directory, case_dict, pages_per_case = -1, normalize = False, normalizer = None, normalization_source_path = '', source_type = ''):
-    
+    source_file = ''
     pdf_path = os.path.join(pdf_directory,f'sample_cases.pdf')
     if normalize:
         source_file = os.path.split(normalization_source_path)[1][:-4] #extract case name from path
@@ -120,7 +121,7 @@ def create_case_pdfs(pdf_directory, case_dict, pages_per_case = -1, normalize = 
                         # Display the filename without the extension in a smaller font
                         ax.set_title(base_filename, fontsize=3)  # Smaller font size
 
-                    for j in range(i + 1, len(axes)):
+                    for j in range(i + 1, len(axes)): # type: ignore
                         axes[j].axis('off')
                     # Save the current figure to the PDF with high DPI
                     pdf.savefig(fig, dpi=300)  # Increase DPI to 300 for better quality
@@ -228,7 +229,7 @@ if __name__ == "__main__":
         else:
             assert annotation_prefix in 'nt' # annotation is either tumor or normal
             annotation = 'normal' if annotation_prefix == 'n' else 'tumor'
-        reference_slide_path = os.path.join(image_directory,annotation, reference_slide)
+        reference_slide_path = os.path.join(image_directory,annotation, reference_slide) # type: ignore
         # print(reference_slide_path)
         normalization_source = cv2.cvtColor(cv2.imread(reference_slide_path), cv2.COLOR_BGR2RGB)
         normalizer.fit(T(normalization_source))

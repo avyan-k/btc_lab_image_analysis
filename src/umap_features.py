@@ -43,8 +43,9 @@ import loading_data as ld
 import utils
 
 """FEATURE EXTRACTION"""
-def get_and_save_features_array(batch_size, model, tumor_type, size_of_dataset, sample_size, save=False):
-    image_loader,filepaths,labels = ld.load_data(batch_size,tumor_type,sample=size_of_dataset > sample_size, sample_size=sample_size)
+def get_and_save_features_array(batch_size, model,transforms, tumor_type, size_of_dataset, sample_size, save=False):
+    image_loader,filepaths,labels = ld.load_data(batch_size,tumor_type,transforms=transforms,sample=size_of_dataset > sample_size, sample_size=sample_size)
+    transforms = transforms.to(DEVICE)
     model = model.to(DEVICE)
     # get features for images in image_loader
     features_list = []
@@ -52,6 +53,7 @@ def get_and_save_features_array(batch_size, model, tumor_type, size_of_dataset, 
     for images,annotations in tqdm(image_loader):
         with torch.no_grad():
             images = images.to(DEVICE)
+            images = transforms(images)
             features = model(images)
             features_list.append(features.cpu()) # list of feature vectors for each image
     all_features = np.array(torch.cat(features_list, dim=0))
@@ -92,7 +94,7 @@ def generate_umap_annotation(features_scaled, seed, annotations, tumor_type, sav
     umap_model = umap.UMAP(n_neighbors=15, min_dist=0.1, metric='euclidean', random_state=seed)
     umap_embedding = umap_model.fit_transform(features_scaled)
 
-    print(f"\ndim of umap_embedding:\t{umap_embedding.shape}\n")
+    print(f"\ndim of umap_embedding:\t{umap_embedding.shape}\n") # type: ignore
 
     # Mapping annotations to colors
     annotation_colors = {'normal': 'blue', 'undiff': 'red', 'well_diff' : 'green'} if'DDC_UC' in tumor_type else {'normal': 'blue', 'tumor': 'red'} # says which color to associate to the annotations of each file
@@ -102,7 +104,7 @@ def generate_umap_annotation(features_scaled, seed, annotations, tumor_type, sav
         assert umap_annotation_output_path != ''
         # Generating figure
         plt.figure(figsize=(10, 8))
-        plt.scatter(umap_embedding[:, 0], umap_embedding[:, 1], c=colors, s=5, alpha=0.7)
+        plt.scatter(umap_embedding[:, 0], umap_embedding[:, 1], c=colors, s=5, alpha=0.7) # type: ignore
 
         #legend
         handles = [plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=color, markersize=10) for color in ['blue', 'red', 'green']]
@@ -165,15 +167,15 @@ def generate_umap_from_dataset(tumor_type, seed, sample = False, sample_size = -
     if size_of_image_dataset != size_of_feature_dataset: # assume features have not been extracted
         print(f"Feature extraction directory {feature_directory} not found, launching feature extraction")
         print("\nSetting up ResNet model ...")
-        model = ld.setup_resnet_model(seed)
+        model,transforms = ld.setup_resnet_model(seed)
         model.eval()
-        get_and_save_features_array(batch_size=batch_size, model= model,tumor_type=tumor_type, size_of_dataset = size_of_image_dataset,sample_size = sample_size, save=True)
+        get_and_save_features_array(batch_size=batch_size, model= model,transforms = transforms, tumor_type=tumor_type, size_of_dataset = size_of_image_dataset,sample_size = sample_size, save=True)
     image_paths, annotations, features_array, features_loader = get_features_from_disk(tumor_type,size_of_dataset= size_of_feature_dataset,sample_size=sample_size)
 
     print(f"\nfeatures_array.shape: (num_images, num_features)\n{features_array.shape}\n")
     
     # Cases for each file
-    cases = [ld.get_case(image_path) for image_path in image_paths]
+    cases = [ld.get_case(str(image_path)) for image_path in image_paths]
 
     # UMAP dimension reduction on normalized features_array and coloring by annotations
     print(f"\nGenerating UMAP for the features of {features_array.shape[0]} images ...")

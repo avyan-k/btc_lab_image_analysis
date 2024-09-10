@@ -6,7 +6,7 @@ from pathlib import Path
 
 import loading_data as ld
 import utils
-import resnet_umap as ru
+import umap_features as ru
 
 
 def generate_umap_annotation(features, seed, annotations, tumor_type, save_plot = False, umap_output_path = ''):
@@ -119,7 +119,7 @@ if __name__ == "__main__":
 
     # ResNet50 model
     print("\nSetting up ResNet model ...")
-    model = ld.setup_resnet_model(seed)
+    model,_ = ld.setup_resnet_model(seed)
     model.eval()
     
     # Retrieve features from disk (numpy arrays)

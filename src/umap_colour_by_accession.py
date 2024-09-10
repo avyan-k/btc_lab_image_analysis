@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 # project files
 import utils
 import loading_data as ld
-import resnet_umap as ru
+import umap_features as ru
 
 
 """UMAP GENERATION - COLORING BASED ON ACCESSION NUMBERS"""
@@ -52,7 +52,8 @@ if __name__ == "__main__":
     tumor_type = "DDC_UC_1"
     run_id = f"{utils.get_time()[:10]}"
     seed = 99
-    size_of_feature_dataset = ru.get_size_of_dataset(tumor_type=tumor_type, extension='jpg')
+    feature_directory = f"./features/{tumor_type}"
+    size_of_feature_dataset = ru.get_size_of_dataset(directory=feature_directory, extension='jpg')
     sample_size = size_of_feature_dataset
     batch_size = 100
 
@@ -70,11 +71,11 @@ if __name__ == "__main__":
 
     # ResNet50 model
     print("\nSetting up ResNet model ...")
-    model = ld.setup_resnet_model(seed)
+    model,transforms = ld.setup_resnet_model(seed)
     model.eval()
     
     # Retrieve features from disk (numpy arrays)
-    image_paths, annotations, features_array = ru.get_features_from_disk(sample_size, tumor_type, seed, sample_size)
+    image_paths, annotations, features_array,_ = ru.get_features_from_disk(tumor_type=tumor_type,size_of_dataset=size_of_feature_dataset,sample_size=size_of_feature_dataset)
 
     print(image_paths)
     print(annotations)
