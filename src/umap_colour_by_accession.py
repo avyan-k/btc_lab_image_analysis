@@ -52,13 +52,14 @@ if __name__ == "__main__":
     tumor_type = "DDC_UC_1"
     run_id = f"{utils.get_time()[:10]}"
     seed = 99
-    feature_directory = f"./features/{tumor_type}"
+    model_type = "ResNet"
+    feature_directory = f"./{model_type}_features/{tumor_type}"
     size_of_feature_dataset = ru.get_size_of_dataset(directory=feature_directory, extension='jpg')
     sample_size = size_of_feature_dataset
     batch_size = 100
-
+    model_type = "ResNet"
     # Directory paths
-    feature_directory = f"./features/{tumor_type}"
+    feature_directory = f"./{model_type}_features/{tumor_type}"
     results_directory = f"./results/umap"
     Path(os.path.join(results_directory)).mkdir(parents=True, exist_ok=True)
 
@@ -75,7 +76,7 @@ if __name__ == "__main__":
     model.eval()
     
     # Retrieve features from disk (numpy arrays)
-    image_paths, annotations, features_array,_ = ru.get_features_from_disk(tumor_type=tumor_type,size_of_dataset=size_of_feature_dataset,sample_size=size_of_feature_dataset)
+    image_paths, annotations, features_array,_ = ru.get_features_from_disk(tumor_type=tumor_type,size_of_dataset=size_of_feature_dataset,sample_size=sample_size)
 
     print(image_paths)
     print(annotations)

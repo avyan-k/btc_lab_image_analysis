@@ -100,10 +100,10 @@ if __name__ == "__main__":
     size_of_feature_dataset = ru.get_size_of_dataset(tumor_type,extension='npz')
     sample_size = 100
     batch_size = 100
-
+    model_type = "ResNet"
     # Paths to directories
     image_directory = f"./images/{tumor_type}/images"
-    feature_directory = f"./features/{tumor_type}"
+    feature_directory = f"./{model_type}_features/{tumor_type}"
     results_directory = f"./results/umap"
     Path(os.path.join(results_directory)).mkdir(parents=True, exist_ok=True)
     
@@ -123,7 +123,7 @@ if __name__ == "__main__":
     model.eval()
     
     # Retrieve features from disk (numpy arrays)
-    image_paths, annotations, features_array = ru.get_features_from_disk(sample_size,tumor_type,seed,sample_size)
+    image_paths, annotations, features_array = ru.get_features_from_disk(size_of_dataset=size_of_feature_dataset,model_type=model_type,tumor_type=tumor_type,seed=seed,sample_size=sample_size)
     print(f"\nfeatures_array.shape: (num_images, num_features)\n{features_array.shape}\n")
 
     # UMAP dimension reduction on normalized features_array and coloring by annotations

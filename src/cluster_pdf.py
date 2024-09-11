@@ -104,7 +104,8 @@ if __name__ == "__main__":
     tumor_type = "SCCOHT_1"
     run_id = f"{utils.get_time()[:10]}"
     seed = 99
-    feature_directory = f"./features/{tumor_type}"
+    model_type = "ResNet"
+    feature_directory = f"./{model_type}_features/{tumor_type}"
     size_of_feature_dataset = ru.get_size_of_dataset(directory=feature_directory, extension='jpg')
     sample_size = 100
     batch_size = 100
@@ -119,7 +120,7 @@ if __name__ == "__main__":
     umap_kmeans_output_path = os.path.join(results_directory, umap_kmeans_file)
     csv_output_path = os.path.join(results_directory, csv_file)
 
-    image_paths, annotations, features_array = ru.get_features_from_disk(size_of_feature_dataset,tumor_type,seed,sample_size)
+    image_paths, annotations, features_array = ru.get_features_from_disk(size_of_dataset=size_of_feature_dataset,model_type=model_type,tumor_type=tumor_type,seed=seed,sample_size=sample_size)
 
     n_clusters = 3 if 'DDC_UC' in tumor_type else 2
 

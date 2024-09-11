@@ -5,7 +5,7 @@ from pathlib import Path
 import shutil
 import torch
 from torchvision import datasets, transforms
-from torchvision.models import resnet50, ResNet50_Weights
+import torchvision.models as torchmodels
 from torch.utils.data import Dataset,DataLoader, Subset
 from PIL import Image, UnidentifiedImageError
 from tqdm import tqdm
@@ -41,7 +41,7 @@ class FeatureDataset(Dataset):
             return tensor.float(), cindex
 
 
-def load_feature_data(batch_size,tumor_type,sample = False, sample_size = -1):
+def load_feature_data(batch_size,model_type,tumor_type,sample = False, sample_size = -1):
     '''
     sample: return a subset of the data, sample_size must be specified
     returns
@@ -49,7 +49,7 @@ def load_feature_data(batch_size,tumor_type,sample = False, sample_size = -1):
     image_filenames: filename of image being extracted
     Classes: list of possible annotations
     '''
-    feature_directory = f"./features/{tumor_type}"
+    feature_directory = f"./{model_type}_features/{tumor_type}"
     image_directory = f"./images/{tumor_type}/images"
     print(f"\nLoading data from: {feature_directory}\nImages Filenames from {image_directory}")
     # get full data set 
@@ -79,7 +79,18 @@ def setup_resnet_model(seed):
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]), # Normalizes the image tensor using the mean and standard deviation values that were used when training the ResNet model (usually on ImageNet)
     ])
     torch.manual_seed(seed)
-    model = resnet50(weights=ResNet50_Weights.DEFAULT)
+    model = torchmodels.resnet50(weights=torchmodels.ResNet50_Weights.DEFAULT)
+    model.eval()
+    return model,processing_transforms
+def setup_VGG16_model(seed):
+    # # Defines transformations to apply on images
+    processing_transforms = transforms.Compose([
+        transforms.Resize((224, 224)),  # ResNet expects 224x224 images
+        transforms.ToTensor(), # Converts the image to a PyTorch tensor, which also scales the pixel values to the range [0, 1]
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]), # Normalizes the image tensor using the mean and standard deviation values that were used when training the ResNet model (usually on ImageNet)
+    ])
+    torch.manual_seed(seed)
+    model = torchmodels.vgg16(weights=torchmodels.VGG16_Weights.DEFAULT)
     model.eval()
     return model,processing_transforms
 def load_data(batch_size,tumor_type,transforms, sample = False, sample_size = -1):
@@ -99,7 +110,7 @@ def load_data(batch_size,tumor_type,transforms, sample = False, sample_size = -1
         # split dataset
         indices = random.sample(range(len(train_dataset)), min(sample_size,len(train_dataset)))
         train_dataset = Subset(train_dataset, indices)
-        image_filenames = [image_filenames[i] for i in indices] # type: ignore
+        filenames = [filenames[i] for i in indices] # type: ignore
         labels = [labels[i] for i in indices]
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
