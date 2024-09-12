@@ -105,7 +105,7 @@ if __name__ == "__main__":
     run_id = f"{utils.get_time()[:10]}"
     seed = 99
     model_type = "ResNet"
-    feature_directory = f"./{model_type}_features/{tumor_type}"
+    feature_directory = f"./features/{model_type}/{tumor_type}"
     size_of_feature_dataset = ru.get_size_of_dataset(directory=feature_directory, extension='jpg')
     sample_size = 100
     batch_size = 100
@@ -120,11 +120,10 @@ if __name__ == "__main__":
     umap_kmeans_output_path = os.path.join(results_directory, umap_kmeans_file)
     csv_output_path = os.path.join(results_directory, csv_file)
 
-    image_paths, annotations, features_array = ru.get_features_from_disk(size_of_dataset=size_of_feature_dataset,model_type=model_type,tumor_type=tumor_type,seed=seed,sample_size=sample_size)
+    image_paths, feature_loader, classes = ru.get_features_from_disk(size_of_dataset=size_of_feature_dataset,model_type=model_type,tumor_type=tumor_type,seed=seed,sample_size=sample_size)
 
     n_clusters = 3 if 'DDC_UC' in tumor_type else 2
-
-    umap_embeddings = ru.generate_umap_annotation(ru.normalization_features_array(features_array), seed, annotations,tumor_type,save_plot=False)
+    umap_embeddings = ru.generate_umap_annotation(feature_loader, seed, tumor_type,save_plot=False, tumor_classes=classes,normalizer=ru.feature_normalizer())
 
     # UMAP dimension reduction with k-means clustering on umap_embeddings in legend
     n_clusters, clusters, cluster_info = kmeans_clustering(umap_embeddings, image_paths,annotations, seed, n_clusters,save_csv= True, cluster_csv_file_path = csv_output_path)

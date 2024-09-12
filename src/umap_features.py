@@ -150,7 +150,7 @@ def generate_umap_from_dataset(tumor_type, seed, model_type = "ResNet" ,sample =
     
     # Paths to directories
     image_directory = f"./images/{tumor_type}/images"
-    feature_directory = f"./{model_type}_features/{tumor_type}"
+    feature_directory = f"./features/{model_type}/{tumor_type}"
     Path(os.path.join(feature_directory)).mkdir(parents=True, exist_ok=True) # results directory for this file
     results_directory = f"./results/umap"
     Path(os.path.join(results_directory)).mkdir(parents=True, exist_ok=True) # results directory for this file
@@ -199,10 +199,10 @@ def generate_umap_from_dataset(tumor_type, seed, model_type = "ResNet" ,sample =
 if __name__ == "__main__":
     seed = 99
     DEVICE = utils.load_device(seed)
-    generate_umap_from_dataset(tumor_type="vMRT", seed = seed,model_type="VGG16",sample=False, sample_size = 1000, plot=True)
-    for tumor_type in os.listdir('./images'):
-        print(tumor_type)
-        generate_umap_from_dataset(tumor_type=tumor_type, seed = seed,model_type="VGG16",sample=False, sample_size = 1000, plot=True)
+    generate_umap_from_dataset(tumor_type="SCCOHT_1", seed = seed,model_type="VGG16",sample=False, sample_size = 1000, plot=True)
+    # for tumor_type in os.listdir('./images'):
+    #     print(tumor_type)
+    #     generate_umap_from_dataset(tumor_type=tumor_type, seed = seed,model_type="VGG16",sample=False, sample_size = 1000, plot=True)
     
     # # Set up parameters
     # run_id = f"{utils.get_time()[:10]}"

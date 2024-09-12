@@ -103,7 +103,7 @@ if __name__ == "__main__":
     model_type = "ResNet"
     # Paths to directories
     image_directory = f"./images/{tumor_type}/images"
-    feature_directory = f"./{model_type}_features/{tumor_type}"
+    feature_directory = f"./features/{model_type}/{tumor_type}"
     results_directory = f"./results/umap"
     Path(os.path.join(results_directory)).mkdir(parents=True, exist_ok=True)
     
