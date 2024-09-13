@@ -49,7 +49,7 @@ def load_feature_data(batch_size,model_type,tumor_type,sample = False, sample_si
     image_filenames: filename of image being extracted
     Classes: list of possible annotations
     '''
-    feature_directory = f"./{model_type}_features/{tumor_type}"
+    feature_directory = f"./features/{model_type}/{tumor_type}"
     image_directory = f"./images/{tumor_type}/images"
     print(f"\nLoading data from: {feature_directory}\nImages Filenames from {image_directory}")
     # get full data set 
