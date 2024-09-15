@@ -3,7 +3,7 @@ import random
 import numpy as np
 from datetime import datetime
 from pathlib import Path
-def load_device(seed):
+def load_device(seed:int):
     set_seed(seed)
     # if a macOs then use mps
     if torch.backends.mps.is_built(): device = torch.device("mps")
@@ -16,7 +16,7 @@ def load_device(seed):
         
     return device
 
-def set_seed(seed):
+def set_seed(seed:int):
     torch.manual_seed(seed)
     np.random.seed(seed)
     random.seed(seed) 

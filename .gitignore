@@ -3,9 +3,11 @@ features
 results/umap
 results/Cases
 results/Clusters
+pickle
 __pycache__/
 *.py[cod]
 *$py.class
 tempCodeRunnerFile.py
 .DS_Store
-.venv
+.venv*
+*.whl

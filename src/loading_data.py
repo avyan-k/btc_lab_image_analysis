@@ -93,7 +93,7 @@ def setup_VGG16_model(seed):
     model = torchmodels.vgg16(weights=torchmodels.VGG16_Weights.DEFAULT)
     model.eval()
     return model,processing_transforms
-def load_data(batch_size,tumor_type,transforms, sample = False, sample_size = -1):
+def load_data(batch_size,tumor_type,transforms = None, sample = False, sample_size = -1):
 
     shutil.rmtree('./images/DDC_UC_1/images/possibly_undiff',ignore_errors=True)
     shutil.rmtree('./images/DDC_UC/images/possibly_undiff',ignore_errors=True)
