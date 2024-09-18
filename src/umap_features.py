@@ -180,6 +180,7 @@ def generate_umap_from_dataset(tumor_type, seed, model_type = "ResNet" ,sample =
         match model_type:
                 case 'ResNet': model,transforms = ld.setup_resnet_model(seed)
                 case 'VGG16': model,transforms = ld.setup_VGG16_model(seed)
+                case _: raise ValueError("Unknown Model")
         model.eval()
         get_and_save_features_array(batch_size=batch_size, model= model,transforms = transforms, tumor_type=tumor_type, size_of_dataset = size_of_image_dataset,sample_size = sample_size, save=True,save_path=feature_directory)
      
