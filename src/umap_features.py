@@ -202,7 +202,7 @@ if __name__ == "__main__":
     DEVICE = utils.load_device(seed)
     # generate_umap_from_dataset(tumor_type="SCCOHT_1", seed = seed,model_type="VGG16",sample=False, sample_size = 1000, plot=True)
     for tumor_type in os.listdir('./images'):
-        if tumor_type == '.DS_Store':
+        if tumor_type in ['.DS_Store','__MACOSX'] :
             continue
         print(tumor_type)
         generate_umap_from_dataset(tumor_type=tumor_type, seed = seed,model_type="ResNet",sample=False, sample_size = 1000, plot=True)

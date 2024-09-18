@@ -67,7 +67,7 @@ def load_feature_data(batch_size,model_type,tumor_type,sample = False, sample_si
         image_filenames = [image_filenames[i] for i in indices]
         # labels = [labels[i] for i in indices]
     # print(filenames,labels,sep='\n')  
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False,num_workers=3)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False,num_workers=8)
     # valid_loader = DataLoader(valid_dataset, batch_size=3, shuffle=True)
     print(f"Training set size: {len(train_dataset)}")
     return train_loader,image_filenames, classes
