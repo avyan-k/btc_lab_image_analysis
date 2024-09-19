@@ -10,6 +10,8 @@ Please activate a conda environment:
 conda create -c conda-forge -n torch-staintools-env python=3.10.5
 ```
 
+Note: to activate an environment with conda, you need to already be in the conda base environment. This is usually done by default, but you may need to run the `source activate base` before running the code below
+
 ```bash
 conda activate torch-staintools-env
 ```
