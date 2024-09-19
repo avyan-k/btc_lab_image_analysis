@@ -150,9 +150,9 @@ if __name__ == "__main__":
     page_sampled_per_case = 2
     sample_size = 10000
     batch_size = 100
-    images_per_case = 1
+    images_per_case = 3
     Path('./pickle').mkdir(parents=True, exist_ok=True)
-    for tumor_type in os.listdir('./images'):
+    for tumor_type in tqdm(os.listdir('./images'),leave=False,desc="Folder"):
         if tumor_type in ['.DS_Store','__MACOSX'] :
             continue
         image_directory = f"./images/{tumor_type}/images"
@@ -164,7 +164,6 @@ if __name__ == "__main__":
             create_case_pdfs(result_directory, case_dict, pages_per_case=1)
         print(tumor_type)
         ssim_dict = norm_ssim_dict(tumor_type=tumor_type,case_dict=case_dict,images_per_case=images_per_case)
-        print(ssim_dict)
         best_norm_cases = nlargest(3, ssim_dict, key = ssim_dict.get) # type: ignore
         with open(f"./pickle/ssim_{tumor_type}_best_norm_cases.txt",'w') as f:
                 pickle.dump(obj=best_norm_cases,file=f,protocol=pickle.HIGHEST_PROTOCOL)
