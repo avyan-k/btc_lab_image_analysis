@@ -12,9 +12,11 @@ from tqdm import tqdm
 from PIL import Image
 import matplotlib.pyplot as plt    
 from matplotlib.backends.backend_pdf import PdfPages
+from skimage.metrics import structural_similarity as ssim
+from piqa import SSIM
+# from torchmetrics import structural_similarity_index_measure as ssim
 # from pytorch_msssim import ssim as torchssim
-from torchmetrics.functional.image import structural_similarity_index_measure as ssim
-from torchmetrics.image import StructuralSimilarityIndexMeasure
+# from torchmetrics.image import StructuralSimilarityIndexMeasure
 from torch_staintools.normalizer import NormalizerBuilder
 from heapq import nlargest
 def find_cases(image_directory):
@@ -122,7 +124,8 @@ def batch_ssim(original_batch, transformed_batch):
     assert len(original_batch) == len(transformed_batch)
     # original_batch,transformed_batch  = postprocess_batch(original_batch), postprocess_batch(transformed_batch)
     # total = sum([ssim(im1=original_image,im2=transformed_image,data_range=1,channel_axis = 2) for original_image, transformed_image in zip(original_batch, transformed_batch)])
-    return ssim(preds=transformed_batch,target=original_batch,data_range=1)
+    ssim = SSIM().to(DEVICE)
+    return ssim(transformed_batch,original_batch)
 
 def norm_ssim_dict(tumor_type,seed, images_per_case, sample_size):
     if tumor_type in ['.DS_Store','__MACOSX'] :
@@ -145,8 +148,8 @@ def norm_ssim_dict(tumor_type,seed, images_per_case, sample_size):
                 pass
     if (len(ssim_dict.keys()) == len(case_dict.keys())*images_per_case): # we sample image for every case, and if ssim_dict has that many keys, then  went through entire dataset
         return ssim_dict
-    image_loader,_,_  = ld.load_data(50,tumor_type,transforms=transforms.ToTensor(),sample=True,sample_size=sample_size)
-    for images in tqdm(case_dict.values(),leave=False, desc = "Cases"):
+    image_loader,_,_  = ld.load_data(100,tumor_type,transforms=transforms.ToTensor(),sample=True,sample_size=sample_size)
+    for case,images in tqdm(case_dict.items(),leave=False, desc = "Cases"):
         random_source_paths = random.sample(images,images_per_case)
         for random_source_path in tqdm(random_source_paths,leave=False, desc="Sources"):
             normalizer = get_fitted_macenko(random_source_path,seed)

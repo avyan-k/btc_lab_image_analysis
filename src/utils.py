@@ -13,7 +13,7 @@ def load_device(seed:int):
     
     # revert to the default (CPU)
     else: device = torch.device("cpu")
-        
+    print(f"Loading device as {device}")
     return device
 
 def set_seed(seed:int):
@@ -37,3 +37,6 @@ def rename_dir(path, src, dst):
     parts[parts.index(src)] = dst
     
     return Path(*parts)
+
+if __name__ == "__main__":
+    load_device(0)
