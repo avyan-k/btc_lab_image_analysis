@@ -54,7 +54,7 @@ if __name__ == "__main__":
     seed = 99
     model_type = "ResNet"
     feature_directory = f"./{model_type}_features/{tumor_type}"
-    size_of_feature_dataset = ru.get_size_of_dataset(directory=feature_directory, extension='jpg')
+    size_of_feature_dataset = ld.get_size_of_dataset(directory=feature_directory, extension='jpg')
     sample_size = size_of_feature_dataset
     batch_size = 100
     model_type = "ResNet"

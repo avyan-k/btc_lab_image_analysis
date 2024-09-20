@@ -96,8 +96,8 @@ if __name__ == "__main__":
     tumor_type = "ALL"  
     seed = 99
     DEVICE = utils.load_device(seed)
-    size_of_image_dataset = ru.get_size_of_dataset(tumor_type,extension='jpg')
-    size_of_feature_dataset = ru.get_size_of_dataset(tumor_type,extension='npz')
+    size_of_image_dataset = ld.get_size_of_dataset(tumor_type,extension='jpg')
+    size_of_feature_dataset = ld.get_size_of_dataset(tumor_type,extension='npz')
     sample_size = 100
     batch_size = 100
     model_type = "ResNet"

@@ -102,6 +102,7 @@ def load_data(batch_size,tumor_type,transforms = None, sample = False, sample_si
 
     # get full data set 
     train_dataset = datasets.ImageFolder(image_directory,transform=transforms)
+    total = len(train_dataset)
     # print(train_dataset.classes,train_dataset.classes[0],train_dataset.classes[1])
     filenames = [sample[0] for sample in train_dataset.samples]
     labels = [train_dataset.classes[sample[1]] for sample in train_dataset.samples]     
@@ -112,11 +113,16 @@ def load_data(batch_size,tumor_type,transforms = None, sample = False, sample_si
         train_dataset = Subset(train_dataset, indices)
         filenames = [filenames[i] for i in indices] # type: ignore
         labels = [labels[i] for i in indices]
-
+        print(f"Training set size: {len(train_dataset)} sampled out of {total}")
+    else:
+        print(f"Training set size: {len(train_dataset)}")
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
     # valid_loader = DataLoader(valid_dataset, batch_size=3, shuffle=True)
-    print(f"Training set size: {len(train_dataset)}")
     return train_loader,filenames,labels
+
+def get_size_of_dataset(directory, extension):
+    return len([path for path in Path(directory).rglob(f'*.{extension}')])
+
 def check_for_unopenable_files(image_directory,tumor_type):
     with open(file=f"./results/{tumor_type}_corrupted_files.txt",mode='w') as f:
         time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")

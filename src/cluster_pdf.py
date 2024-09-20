@@ -7,6 +7,7 @@ from sklearn.cluster import KMeans
 import pandas as pd
 from matplotlib.colors import ListedColormap
 
+import loading_data as ld
 import utils
 import umap_features as ru
 
@@ -106,7 +107,7 @@ if __name__ == "__main__":
     seed = 99
     model_type = "ResNet"
     feature_directory = f"./features/{model_type}/{tumor_type}"
-    size_of_feature_dataset = ru.get_size_of_dataset(directory=feature_directory, extension='jpg')
+    size_of_feature_dataset = ld.get_size_of_dataset(directory=feature_directory, extension='jpg')
     sample_size = 100
     batch_size = 100
 

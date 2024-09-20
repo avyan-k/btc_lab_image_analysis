@@ -129,8 +129,6 @@ def generate_umap_annotation(feature_loader,seed, tumor_type, save_plot = False,
     return umap_embedding
 
 
-def get_size_of_dataset(directory, extension):
-    return len([path for path in Path(directory).rglob(f'*.{extension}')])
 
 def generate_umap_from_dataset(tumor_type, seed, model_type = "ResNet" ,sample = False, sample_size = -1, plot = False):
     '''
@@ -161,8 +159,8 @@ def generate_umap_from_dataset(tumor_type, seed, model_type = "ResNet" ,sample =
     number_of_previous_results = len([name for name in os.listdir(results_directory) if os.path.isfile(name)])
     run_id = f"{model_type}_{utils.get_time()[:10]}_{number_of_previous_results}"
     batch_size = 100 # tested to be optimal at 100 batches, should be changed manually
-    size_of_image_dataset = get_size_of_dataset(image_directory,extension='jpg')
-    size_of_feature_dataset = get_size_of_dataset(feature_directory,extension='npz')
+    size_of_image_dataset = ld.get_size_of_dataset(image_directory,extension='jpg')
+    size_of_feature_dataset = ld.get_size_of_dataset(feature_directory,extension='npz')
 
     if not sample: # if we do not sample use entire dataset
         sample_size = size_of_image_dataset

@@ -133,6 +133,7 @@ def norm_ssim_dict(tumor_type,seed, images_per_case, sample_size):
     ssim_dict = {}
     image_directory = f"./images/{tumor_type}/images"
     result_directory = f"./results/Cases/{tumor_type}"
+    Path('./pickle').mkdir(parents=True, exist_ok=True)
     Path(result_directory).mkdir(parents=True, exist_ok=True)
 
     case_dict = find_cases(image_directory)
@@ -148,6 +149,9 @@ def norm_ssim_dict(tumor_type,seed, images_per_case, sample_size):
                 pass
     if (len(ssim_dict.keys()) == len(case_dict.keys())*images_per_case): # we sample image for every case, and if ssim_dict has that many keys, then  went through entire dataset
         return ssim_dict
+    
+    if sample_size == "all":
+        sample_size = ld.get_size_of_dataset(image_directory,extension='jpg')
     image_loader,_,_  = ld.load_data(100,tumor_type,transforms=transforms.ToTensor(),sample=True,sample_size=sample_size)
     for case,images in tqdm(case_dict.items(),leave=False, desc = "Cases"):
         random_source_paths = random.sample(images,images_per_case)
@@ -165,17 +169,36 @@ def norm_ssim_dict(tumor_type,seed, images_per_case, sample_size):
                 pickle.dump(obj=ssim_dict,file=f,protocol=pickle.HIGHEST_PROTOCOL)
     return ssim_dict
 
+def check_unnormalizable_images(tumor_type,source_path,seed):
+    image_loader,filepaths,_  = ld.load_data(1,tumor_type,transforms=transforms.ToTensor())
+    normalizer = get_fitted_macenko(source_path,seed)
+    normalizer = normalizer.to(DEVICE)
+
+    with open(file=f"./results/{tumor_type}_unnormalizable_images.txt",mode='w') as f:
+        f.write(f"Checked on {utils.get_time()}\n")
+        for i,(image,_) in enumerate(tqdm(image_loader)):
+            filepath = filepaths[i]
+            image = image.to(DEVICE)
+            try:
+                normalizer.transform(image)
+            except IndexError:
+                f.write(str(filepath)+'\n')
+
 
 if __name__ == "__main__":
     seed = 99
     utils.set_seed(99)
     DEVICE = utils.load_device(99)
     page_sampled_per_case = 2
-    sample_size = 3000
+    sample_size = 15000
     images_per_case = 3
-    Path('./pickle').mkdir(parents=True, exist_ok=True)
+
+
+
     for tumor_type in tqdm(os.listdir('./images'),leave=False,desc="Folder"):
         print(tumor_type)
+        check_unnormalizable_images(tumor_type=tumor_type,source_path='images/vMRT/images/tumor/PCS4107_35655.jpg',seed=seed)
+        continue
         ssim_dict = norm_ssim_dict(tumor_type=tumor_type,seed= seed,images_per_case=images_per_case, sample_size = sample_size)
         best_norm_cases = nlargest(3, ssim_dict, key = ssim_dict.get) # type: ignore
         with open(f"./pickle/ssim_{tumor_type}_best_norm_cases.txt",'w') as f:
