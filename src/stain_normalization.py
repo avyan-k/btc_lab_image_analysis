@@ -124,8 +124,28 @@ def batch_ssim(original_batch, transformed_batch):
     total = sum([ssim(im1=original_image,im2=transformed_image,data_range=1,channel_axis = 2) for original_image, transformed_image in zip(original_batch, transformed_batch)])
     return total/len(original_batch)
 
-def norm_ssim_dict(tumor_type, case_dict, images_per_case):
+def norm_ssim_dict(tumor_type,seed, images_per_case, sample_size):
+    if tumor_type in ['.DS_Store','__MACOSX'] :
+        return {}
     ssim_dict = {}
+    image_directory = f"./images/{tumor_type}/images"
+    result_directory = f"./results/Cases/{tumor_type}"
+    Path(result_directory).mkdir(parents=True, exist_ok=True)
+
+    case_dict = find_cases(image_directory)
+    if not os.path.isfile(os.path.join(result_directory,f'sample_cases.pdf')):
+        create_case_pdfs(result_directory, case_dict, pages_per_case=1)
+
+    pickle_path = f"./pickle/ssim_{tumor_type}_{seed}_{sample_size}_samples_{images_per_case}_images.pkl"
+    if os.path.isfile(pickle_path):
+        with open(pickle_path,'rb') as f:
+            try:
+                ssim_dict = pickle.load(f)
+            except EOFError:
+                pass
+    if (len(ssim_dict.keys()) == len(case_dict.keys())*images_per_case): # we sample image for every case, and if ssim_dict has that many keys, then  went through entire dataset
+        return ssim_dict
+    image_loader,_,_  = ld.load_data(100,tumor_type,transforms=transforms.ToTensor(),sample=True,sample_size=sample_size)
     for case,images in tqdm(case_dict.items(),leave=False, desc = "Cases"):
         random_source_paths = random.sample(images,images_per_case)
         for random_source_path in tqdm(random_source_paths,leave=False, desc="Sources"):
@@ -138,7 +158,7 @@ def norm_ssim_dict(tumor_type, case_dict, images_per_case):
                     transformed = normalizer.transform(images)
                     ssim_values.append(batch_ssim(images,transformed))
             ssim_dict[random_source_path] = sum(ssim_values)/len(ssim_values)
-            with open(f"./pickle/ssim_{tumor_type}_{seed}_{sample_size}_samples_{images_per_case}_images.pkl",'wb') as f:
+            with open(pickle_path,'wb') as f:
                 pickle.dump(obj=ssim_dict,file=f,protocol=pickle.HIGHEST_PROTOCOL)
     return ssim_dict
 
@@ -148,25 +168,15 @@ if __name__ == "__main__":
     utils.set_seed(99)
     DEVICE = utils.load_device(99)
     page_sampled_per_case = 2
-    sample_size = 10000
-    batch_size = 100
+    sample_size = 3000
     images_per_case = 3
     Path('./pickle').mkdir(parents=True, exist_ok=True)
     for tumor_type in tqdm(os.listdir('./images'),leave=False,desc="Folder"):
-        if tumor_type in ['.DS_Store','__MACOSX'] :
-            continue
-        image_directory = f"./images/{tumor_type}/images"
-        result_directory = f"./results/Cases/{tumor_type}"
-        Path(result_directory).mkdir(parents=True, exist_ok=True)
-        image_loader,_,_  = ld.load_data(batch_size,tumor_type,transforms=transforms.ToTensor(),sample=True,sample_size=sample_size)
-        case_dict = find_cases(image_directory)
-        if not os.path.isfile(os.path.join(result_directory,f'sample_cases.pdf')):
-            create_case_pdfs(result_directory, case_dict, pages_per_case=1)
         print(tumor_type)
-        ssim_dict = norm_ssim_dict(tumor_type=tumor_type,case_dict=case_dict,images_per_case=images_per_case)
+        ssim_dict = norm_ssim_dict(tumor_type=tumor_type,seed= seed,images_per_case=images_per_case, sample_size = sample_size)
         best_norm_cases = nlargest(3, ssim_dict, key = ssim_dict.get) # type: ignore
         with open(f"./pickle/ssim_{tumor_type}_best_norm_cases.txt",'w') as f:
-                pickle.dump(obj=best_norm_cases,file=f,protocol=pickle.HIGHEST_PROTOCOL)
+                f.write(str(best_norm_cases))
         print(*best_norm_cases)
 
 
