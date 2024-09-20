@@ -130,8 +130,6 @@ def batch_ssim(original_batch, transformed_batch):
     return ssim(transformed_batch,original_batch)
 
 def norm_ssim_dict(tumor_type,seed, images_per_case, sample_size):
-    if tumor_type in ['.DS_Store','__MACOSX'] :
-        return {}
     ssim_dict = {}
     image_directory = f"./images/{tumor_type}/images"
     result_directory = f"./results/Cases/{tumor_type}"
@@ -199,8 +197,14 @@ if __name__ == "__main__":
 
     for tumor_type in tqdm(os.listdir('./images'),leave=False,desc="Folder"):
         print(tumor_type)
-        check_unnormalizable_images(tumor_type=tumor_type,source_path='images/vMRT/images/tumor/PCS4107_35655.jpg',seed=seed)
-        continue
+        if tumor_type in ['.DS_Store','__MACOSX'] :
+            continue
+        with open(file=f"./results/{tumor_type}_unnormalizable_images.txt",mode='r') as f:
+            f.readline()
+            for line in f:
+                to_delete = line.split()[0]
+                if os.path.isfile(to_delete):
+                    os.remove(to_delete)
         ssim_dict = norm_ssim_dict(tumor_type=tumor_type,seed= seed,images_per_case=images_per_case, sample_size = sample_size)
         best_norm_cases = nlargest(3, ssim_dict, key = ssim_dict.get) # type: ignore
         with open(f"./pickle/ssim_{tumor_type}_best_norm_cases.txt",'w') as f:

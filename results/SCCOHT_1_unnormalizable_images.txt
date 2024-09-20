@@ -1,3 +1,6 @@
-Checked on 2024-09-01 23:25:53
-images\SCCOHT_1\images\tumor\AS17036383_A49_58057st.jpg
-images\SCCOHT_1\images\tumor\PCS281092299G_92675st.jpg
+Checked on 2024-09-20 16:51:17
+./images/SCCOHT_1/images/tumor/AS17036383_A49_58057.jpg Empty tissue mask computed
+./images/SCCOHT_1/images/tumor/PCS281092299G_92675.jpg Empty tissue mask computed
+./images/SCCOHT_1/images/tumor/PCS281092299G_92696.jpg Empty tissue mask computed
+./images/SCCOHT_1/images/tumor/PCS281092299G_92715.jpg Empty tissue mask computed
+./images/SCCOHT_1/images/tumor/PCS281092299G_92716.jpg Empty tissue mask computed
