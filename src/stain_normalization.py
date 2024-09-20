@@ -2,6 +2,7 @@ import loading_data as ld
 import utils
 import random
 import torch
+from torch.linalg import LinAlgError
 import pickle
 from torchvision import transforms
 from torchvision.utils import save_image
@@ -18,6 +19,7 @@ from piqa import SSIM
 # from pytorch_msssim import ssim as torchssim
 # from torchmetrics.image import StructuralSimilarityIndexMeasure
 from torch_staintools.normalizer import NormalizerBuilder
+from torch_staintools.functional.tissue_mask import TissueMaskException
 from heapq import nlargest
 def find_cases(image_directory):
     paths = [path for path in Path(image_directory).rglob('*.jpg')]
@@ -181,8 +183,8 @@ def check_unnormalizable_images(tumor_type,source_path,seed):
             image = image.to(DEVICE)
             try:
                 normalizer.transform(image)
-            except IndexError:
-                f.write(str(filepath)+'\n')
+            except (TissueMaskException, LinAlgError) as err:
+                f.write(f"{filepath} {err}\n")
 
 
 if __name__ == "__main__":
