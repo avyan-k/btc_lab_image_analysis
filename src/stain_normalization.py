@@ -14,7 +14,7 @@ from PIL import Image
 import matplotlib.pyplot as plt    
 from matplotlib.backends.backend_pdf import PdfPages
 from skimage.metrics import structural_similarity as ssim
-from piqa import SSIM
+from piqa import SSIM, PSNR
 # from torchmetrics import structural_similarity_index_measure as ssim
 # from pytorch_msssim import ssim as torchssim
 # from torchmetrics.image import StructuralSimilarityIndexMeasure
@@ -117,20 +117,17 @@ def get_fitted_macenko(source_path,seed):
     normalizer_macenko.fit(source_tensor)
     return normalizer_macenko
 
-# def batch_ssim(original_batch, transformed_batch):
-#     assert len(original_batch) == len(transformed_batch)
-#     original_batch, transformed_batch = postprocess_batch_GPU(original_batch), postprocess_batch_GPU(transformed_batch)
-#     return float(torchssim(original_batch, transformed_batch,data_range=1,size_average=True))
 
-def batch_ssim(original_batch, transformed_batch):
+def batch_metrics(original_batch, transformed_batch):
     assert len(original_batch) == len(transformed_batch)
     # original_batch,transformed_batch  = postprocess_batch(original_batch), postprocess_batch(transformed_batch)
     # total = sum([ssim(im1=original_image,im2=transformed_image,data_range=1,channel_axis = 2) for original_image, transformed_image in zip(original_batch, transformed_batch)])
     ssim = SSIM().to(DEVICE)
-    return ssim(transformed_batch,original_batch)
+    psnr = PSNR().to(DEVICE)
+    return torch.Tensor([ssim(original_batch,transformed_batch),psnr(original_batch,transformed_batch)])
 
-def norm_ssim_dict(tumor_type,seed, images_per_case, sample_size):
-    ssim_dict = {}
+def normalization_evaluation(tumor_type,seed, images_per_case, sample_size):
+    metric_dict = {}
     image_directory = f"./images/{tumor_type}/images"
     result_directory = f"./results/Cases/{tumor_type}"
     Path('./pickle').mkdir(parents=True, exist_ok=True)
@@ -140,34 +137,34 @@ def norm_ssim_dict(tumor_type,seed, images_per_case, sample_size):
     if not os.path.isfile(os.path.join(result_directory,f'sample_cases.pdf')):
         create_case_pdfs(result_directory, case_dict, pages_per_case=1)
 
-    pickle_path = f"./pickle/ssim_{tumor_type}_{seed}_{sample_size}_samples_{images_per_case}_images.pkl"
+    pickle_path = f"./pickle/metrics_{tumor_type}_{seed}_{sample_size}_samples_{images_per_case}_images.pkl"
     if os.path.isfile(pickle_path):
         with open(pickle_path,'rb') as f:
             try:
-                ssim_dict = pickle.load(f)
+                metric_dict = pickle.load(f)
             except EOFError:
                 pass
-    if (len(ssim_dict.keys()) == len(case_dict.keys())*images_per_case): # we sample image for every case, and if ssim_dict has that many keys, then  went through entire dataset
-        return ssim_dict
+    if (len(metric_dict.keys()) == len(case_dict.keys())*images_per_case): # we sample image for every case, and if metric_dict has that many keys, then  went through entire dataset
+        return metric_dict
     
     if sample_size == "all":
         sample_size = ld.get_size_of_dataset(image_directory,extension='jpg')
-    image_loader,_,_  = ld.load_data(100,tumor_type,transforms=transforms.ToTensor(),sample=True,sample_size=sample_size)
+    image_loader,_,_  = ld.load_data(300,tumor_type,transforms=transforms.ToTensor(),sample=True,sample_size=sample_size)
     for case,images in tqdm(case_dict.items(),leave=False, desc = "Cases"):
         random_source_paths = random.sample(images,images_per_case)
         for random_source_path in tqdm(random_source_paths,leave=False, desc="Sources"):
             normalizer = get_fitted_macenko(random_source_path,seed)
             normalizer = normalizer.to(DEVICE)
-            ssim_values = []
+            metrics_values = torch.zeros(2)
             with torch.no_grad():
                 for images,_ in tqdm(image_loader,leave=False, desc = "Images"):
                     images = images.to(DEVICE)
                     transformed = normalizer.transform(images)
-                    ssim_values.append(batch_ssim(images,transformed))
-            ssim_dict[random_source_path] = sum(ssim_values)/len(ssim_values)
+                    metrics_values += batch_metrics(images,transformed)
+            metric_dict[random_source_path] = metrics_values.cpu()/max(1,sample_size/300)
             with open(pickle_path,'wb') as f:
-                pickle.dump(obj=ssim_dict,file=f,protocol=pickle.HIGHEST_PROTOCOL)
-    return ssim_dict
+                pickle.dump(obj=metric_dict,file=f,protocol=pickle.HIGHEST_PROTOCOL)
+    return metric_dict
 
 def check_unnormalizable_images(tumor_type,source_path,seed):
     image_loader,filepaths,_  = ld.load_data(1,tumor_type,transforms=transforms.ToTensor())
@@ -205,10 +202,11 @@ if __name__ == "__main__":
                 to_delete = line.split()[0]
                 if os.path.isfile(to_delete):
                     os.remove(to_delete)
-        ssim_dict = norm_ssim_dict(tumor_type=tumor_type,seed= seed,images_per_case=images_per_case, sample_size = sample_size)
-        best_norm_cases = nlargest(3, ssim_dict, key = ssim_dict.get) # type: ignore
-        with open(f"./pickle/ssim_{tumor_type}_best_norm_cases.txt",'w') as f:
-                f.write(str(best_norm_cases))
+        metric_dict = normalization_evaluation(tumor_type=tumor_type,seed= seed,images_per_case=images_per_case, sample_size = sample_size)
+        best_norm_cases = nlargest(3, metric_dict.items(), key = lambda k : k[0][1]) # type: ignore
+        with open(f"./pickle/metrics_{tumor_type}_best_norm_cases.txt",'w') as f:
+                for case, metrics in best_norm_cases:
+                    f.write(f"Case: {case} SSIM: {float(metrics[0])} PSNR: {float(metrics[1])}\n")
         print(*best_norm_cases)
 
 
