@@ -8,6 +8,7 @@ from tqdm import tqdm
 import torchmetrics
 import os
 import sys
+from pathlib import Path
 import time
 from datetime import datetime
 from torchinfo import summary
@@ -16,9 +17,8 @@ import loading_data as ld
 import utils
 class Tumor_Classifier(nn.Module):
 
-  def __init__(self,layers, neurons_per_layer,dropout=0.5, input_shape = (22,3), classes = 2):
+  def __init__(self,layers, neurons_per_layer,dropout=0.5, input_neurons = 1000, classes = 2):
     super(Tumor_Classifier, self).__init__() 
-    input_neurons = input_shape[0]
     self.dropout = dropout
     self.network = nn.ModuleList()
     self.network.append(nn.Linear(input_neurons, neurons_per_layer))
@@ -35,13 +35,14 @@ class Tumor_Classifier(nn.Module):
           x = F.dropout(x,self.dropout)
       return x
 
-def train_model(model,input_shape,train_loader,valid_loader, num_epochs = 200,number_of_validations = 3,learning_rate = 0.001, weight_decay=0.001):
+def train_model(model,input_shape,train_loader,valid_loader, train_count,valid_count,num_epochs = 200,number_of_validations = 3,learning_rate = 0.001, weight_decay=0.001):
   
   losses = np.empty(num_epochs)
   start = time.time()
+  Path('./results/training/models').mkdir(parents=True, exist_ok=True)
   text_file = open(r"results\training\losses.txt", "w",encoding="utf-8")
   text_file.write(f"Attempting {num_epochs} epochs on date of {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n with model:")
-  model_stats = summary(model, input_shape, verbose=0)
+  model_stats = summary(model, (1,input_shape,1), verbose=0)
   text_file.write(f"Model Summary:{str(model_stats)}\n")
   text_file.write('\n')
   text_file.close()
@@ -50,8 +51,10 @@ def train_model(model,input_shape,train_loader,valid_loader, num_epochs = 200,nu
 
   # Initializes the Adam optimizer with the model's parameters
   optimizer = optim.Adam(model.parameters(), lr=learning_rate,weight_decay=weight_decay)
-  loss = nn.CrossEntropyLoss().to(DEVICE)
-  accuracy = torchmetrics.Accuracy(task="multiclass", num_classes=27).to(DEVICE)
+  train_loss_function = nn.CrossEntropyLoss(weight=ld.count_dict_tensor(train_count)).to(DEVICE)
+  valid_loss_function = nn.CrossEntropyLoss(weight=ld.count_dict_tensor(valid_count)).to(DEVICE)
+  accuracy = torchmetrics.Accuracy(task="multiclass", num_classes=len(train_count.keys())).to(DEVICE)
+
   val_iteration = len(train_loader) // number_of_validations
   for epoch in tqdm(range(num_epochs),desc="Epoch",position=3,leave=False):
     for iteration, (X_train, y_train) in enumerate(tqdm((train_loader),desc="Iteration",position=4,leave=False)):
@@ -64,7 +67,7 @@ def train_model(model,input_shape,train_loader,valid_loader, num_epochs = 200,nu
       y_hat = model(X_train)
       
       # comparing the model's predictions with the truth labels
-      train_loss = loss(y_hat, y_train)
+      train_loss = train_loss_function(y_hat, y_train)
       
       # backpropagating the loss through the model
       train_loss.backward()
@@ -74,10 +77,10 @@ def train_model(model,input_shape,train_loader,valid_loader, num_epochs = 200,nu
 
       # checks if should compute the validation metrics for plotting later
       if iteration % val_iteration == 0 and epoch % 5 == 0:
-        valid_model(model,valid_loader,epoch,iteration,accuracy,loss)
+        valid_model(model,valid_loader,epoch,iteration,accuracy,valid_loss_function)
 
     # logging results
-    logging_result(train_loss,epoch,start,losses)
+    logging_result(train_loss_function,epoch,start,losses)
 
   text_file = open(r"results\training\losses.txt", "a") 
   text_file.write(f"Losses: \n{losses}\n")
@@ -168,10 +171,14 @@ if __name__ == "__main__":
   seed = 99
   DEVICE = utils.load_device(seed)
   number_of_epochs = 15         
-  landmark_train,landmark_validation,land_mark_test = ld.load_feature_data(batch_size=200,model_type="ResNet",tumor_type="vMRT")
-  classifier = Tumor_Classifier(layers=5,neurons_per_layer=64,dropout=0,input_shape=(1000))
-#   mlp = MLP_model(layers = 5, neurons_per_layer = 64,dropout=0, input_shape = (21,2)).to(DEVICE)
-#   summary(mlp,(1, 2, 21, 1))
+  loaders, count_dict = ld.load_training_feature_data(batch_size=200,model_type="ResNet",tumor_type="SCCOHT_1")
+  train_loader, valid_loader, test_loader = loaders
+  train_count, valid_count, test_count = count_dict
+
+  classifier = Tumor_Classifier(layers=5,neurons_per_layer=64,dropout=0,input_neurons=1000,classes=len(train_count.keys()))
+  summary(classifier,(1, 1000, 1))
+
+  train_model(classifier,1000,train_loader,valid_loader,train_count, valid_count,num_epochs = number_of_epochs,number_of_validations = 3,learning_rate = 0.001, weight_decay=0.001)
 #   mlp.load_state_dict(torch.load(r'our_models\MLP\model3.pt', map_location = DEVICE))
 #   print(test(mlp, land_mark_test))
 #   test_dict = {}

@@ -10,9 +10,11 @@ from torch.utils.data import Dataset,DataLoader, Subset, random_split
 from PIL import Image, UnidentifiedImageError
 from tqdm import tqdm
 from datetime import datetime
+from collections import Counter
+
 import utils
 
-class FeatureDataset(Dataset):
+class FeatureDataset(datasets.DatasetFolder):
     def __init__(self, datapath : str,  transform=None):
         """
         Arguments:
@@ -20,25 +22,14 @@ class FeatureDataset(Dataset):
             transform (callable, optional): Optional transform to be applied
                 on a sample.
         """
-        self.paths = list(Path(datapath).glob("*/*.npz")) # loads all possible numpy arrays in directory as filepaths
-        self.labels = [path.parent.name for path in self.paths]
-        self.transform = transform
-        self.classes =  sorted(entry.name for entry in os.scandir(datapath) if entry.is_dir()) # finds all possible classes and sorts them
-        self.class_to_idx = {cls_name: i for i, cls_name in enumerate(self.classes)} # converts a class to its index, used in __getitem__
+        super().__init__(
+            root=datapath,
+            loader= lambda path : torch.from_numpy(np.load(str(path))["arr_0"]),
+            extensions= (".npz",),
+            transform=transform,
+        )
 
-    def __len__(self) -> int:
-        return len(self.paths)
     
-    def __getitem__(self, index : int) -> tuple[torch.Tensor, int]:
-        array = np.load(str(self.paths[index]))["arr_0"] # load array from filepath, note that since no arg is provided when saving, the first array is arr_0
-        tensor = torch.from_numpy(array) # convert to tensor
-        class_name  = self.paths[index].parent.name # since we use pathlib.Path, we can call its parent for the class
-        cindex = self.class_to_idx[class_name]
-
-        if self.transform:
-            return self.transform(tensor).float(), cindex
-        else:
-            return tensor.float(), cindex
 
 
 def load_feature_data(batch_size,model_type,tumor_type,sample = False, sample_size = -1):
@@ -67,7 +58,7 @@ def load_feature_data(batch_size,model_type,tumor_type,sample = False, sample_si
         image_filenames = [image_filenames[i] for i in indices]
         # labels = [labels[i] for i in indices]
     # print(filenames,labels,sep='\n')  
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False,num_workers=8)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False,num_workers=get_allowed_forks())
     # valid_loader = DataLoader(valid_dataset, batch_size=3, shuffle=True)
     print(f"Training set size: {len(train_dataset)}")
     return train_loader,image_filenames, classes
@@ -77,46 +68,24 @@ def load_training_feature_data(batch_size,model_type,tumor_type):
     print(f"\nLoading data from: {feature_directory}")
     # get full data set 
     full_train_dataset = FeatureDataset(feature_directory)
-    classes = full_train_dataset.classes
     train_size = len(full_train_dataset) # compute total size of dataset
-    labels = get_label_proportions(full_train_dataset,classes)
-    print(labels)
     # Split the datasets into training, validation, and testing sets
-    train_dataset, valid_dataset, _ = random_split(full_train_dataset, [int(train_size*0.9),int(train_size*0.1),train_size - int(train_size*0.9)-int(train_size*0.1)])
-   
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False,num_workers=8)
-    # valid_loader = DataLoader(valid_dataset, batch_size=3, shuffle=True)
-    print(f"Training set size: {len(train_dataset)}")
-    return train_loader,valid_dataset, classes
+    train_dataset, valid_dataset, test_dataset, _ = random_split(full_train_dataset, [int(train_size*0.8),int(train_size*0.1),int(train_size*0.1),train_size - int(train_size*0.8)-2*int(train_size*0.1)])
 
-def get_label_proportions(dataset,classes):
-    labels = torch.zeros(len(classes), dtype=torch.long)
-    for _, target in dataset:
-        labels += target
-    return labels
+    train_classes = dict(sorted(Counter([full_train_dataset.targets[i] for i in train_dataset.indices]).items())) # counter return a dictionnary of the counts, sort and wrap with dict to get dict sorted by key
+    valid_classes = dict(sorted(Counter([full_train_dataset.targets[i] for i in valid_dataset.indices]).items()))
+    test_classes = dict(sorted(Counter([full_train_dataset.targets[i] for i in test_dataset.indices]).items()))
 
-def setup_resnet_model(seed):
-    # # Defines transformations to apply on images
-    processing_transforms = transforms.Compose([
-        transforms.Resize((224, 224)),  # ResNet expects 224x224 images
-        transforms.ToTensor(), # Converts the image to a PyTorch tensor, which also scales the pixel values to the range [0, 1]
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]), # Normalizes the image tensor using the mean and standard deviation values that were used when training the ResNet model (usually on ImageNet)
-    ])
-    torch.manual_seed(seed)
-    model = torchmodels.resnet50(weights=torchmodels.ResNet50_Weights.DEFAULT)
-    model.eval()
-    return model,processing_transforms
-def setup_VGG16_model(seed):
-    # # Defines transformations to apply on images
-    processing_transforms = transforms.Compose([
-        transforms.Resize((224, 224)),  # ResNet expects 224x224 images
-        transforms.ToTensor(), # Converts the image to a PyTorch tensor, which also scales the pixel values to the range [0, 1]
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]), # Normalizes the image tensor using the mean and standard deviation values that were used when training the ResNet model (usually on ImageNet)
-    ])
-    torch.manual_seed(seed)
-    model = torchmodels.vgg16(weights=torchmodels.VGG16_Weights.DEFAULT)
-    model.eval()
-    return model,processing_transforms
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True,num_workers=get_allowed_forks())
+    valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True,num_workers=get_allowed_forks())
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True,num_workers=get_allowed_forks())
+
+    print(f"Training set size: {len(train_dataset)}, Class Proportions: {({full_train_dataset.classes[k]:v for k,v in train_classes.items()})}")
+    print(f"Validation set size: {len(valid_loader)}, Class Proportions: {({full_train_dataset.classes[k]:v for k,v in valid_classes.items()})}")
+    print(f"Test set size: {len(test_loader)}, Class Proportions: {({full_train_dataset.classes[k]:v for k,v in test_classes.items()})}")
+
+    return (train_loader, valid_loader, test_loader), (train_classes, valid_classes, test_classes)
+
 def load_data(batch_size,tumor_type,transforms = None, sample = False, sample_size = -1):
 
     shutil.rmtree('./images/DDC_UC_1/images/possibly_undiff',ignore_errors=True)
@@ -140,9 +109,32 @@ def load_data(batch_size,tumor_type,transforms = None, sample = False, sample_si
         print(f"Training set size: {len(train_dataset)} sampled out of {total}")
     else:
         print(f"Training set size: {len(train_dataset)}")
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, num_workers=get_allowed_forks()//2)
     # valid_loader = DataLoader(valid_dataset, batch_size=3, shuffle=True)
     return train_loader,filenames,labels
+
+def setup_resnet_model(seed):
+    # # Defines transformations to apply on images
+    processing_transforms = transforms.Compose([
+        transforms.Resize((224, 224)),  # ResNet expects 224x224 images
+        transforms.ToTensor(), # Converts the image to a PyTorch tensor, which also scales the pixel values to the range [0, 1]
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]), # Normalizes the image tensor using the mean and standard deviation values that were used when training the ResNet model (usually on ImageNet)
+    ])
+    torch.manual_seed(seed)
+    model = torchmodels.resnet50(weights=torchmodels.ResNet50_Weights.DEFAULT)
+    model.eval()
+    return model,processing_transforms
+def setup_VGG16_model(seed):
+    # # Defines transformations to apply on images
+    processing_transforms = transforms.Compose([
+        transforms.Resize((224, 224)),  # ResNet expects 224x224 images
+        transforms.ToTensor(), # Converts the image to a PyTorch tensor, which also scales the pixel values to the range [0, 1]
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]), # Normalizes the image tensor using the mean and standard deviation values that were used when training the ResNet model (usually on ImageNet)
+    ])
+    torch.manual_seed(seed)
+    model = torchmodels.vgg16(weights=torchmodels.VGG16_Weights.DEFAULT)
+    model.eval()
+    return model,processing_transforms
 
 def get_size_of_dataset(directory, extension):
     return len([path for path in Path(directory).rglob(f'*.{extension}')])
@@ -162,11 +154,21 @@ def get_case(path:str) -> str:
     extracts case from image filepath, assuming "case" is everything before the last _ for the filename
     '''
     return os.path.basename(path).rsplit('_', 1)[0]
+
+def count_dict_tensor(count_dict:dict):
+    '''
+    Converts a dictionnary of the count of each class (returned by load_training_feature_data) into a 1D tensor (required for weighted cross entropy loss)
+    '''
+    return torch.tensor([count_dict[k]/sum(count_dict.values()) for k in sorted(count_dict.keys())])
+def get_allowed_forks():
+    if os.name == 'nt':
+        return 0
+    return 8
 if __name__ == "__main__":
     # load_data("vMRT",99,1000)
     # load_feature_data(100,"VMRT",99,100)
     
-    tumor_type = "vMRT"
+    tumor_type = "DDC_UC_1"
     seed = 99
     load_training_feature_data(10,"ResNet",tumor_type)
     # Image.open(r'images\DDC_UC_1/images/undiff\AS15041526_227753du.jpg')

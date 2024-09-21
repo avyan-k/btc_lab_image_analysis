@@ -4,6 +4,7 @@ results/umap
 results/Cases
 results/Clusters
 pickle
+training
 __pycache__/
 *.py[cod]
 *$py.class

@@ -99,6 +99,7 @@ def feature_normalizer():
 
 """UMAP GENERATION - COLORING BASED ON ANNOTATIONS"""
 def generate_umap_annotation(feature_loader,seed, tumor_type, save_plot = False, umap_annotation_output_path = '', tumor_classes = ['normal', 'tumor'], normalizer = None):
+    print(len(feature_loader))
     features_array, annotations = get_features_from_loader(feature_loader,classes=tumor_classes)
     features_scaled = normalizer.fit_transform(features_array)
     umap_model = umap.UMAP(n_neighbors=15, min_dist=0.1, metric='euclidean', random_state=seed)
@@ -199,7 +200,7 @@ if __name__ == "__main__":
     seed = 99
     DEVICE = utils.load_device(seed)
     # generate_umap_from_dataset(tumor_type="SCCOHT_1", seed = seed,model_type="VGG16",sample=False, sample_size = 1000, plot=True)
-    for tumor_type in os.listdir('./images'):
+    for tumor_type in reversed(os.listdir('./images')):
         if tumor_type in ['.DS_Store','__MACOSX'] :
             continue
         print(tumor_type)

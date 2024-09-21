@@ -1,5 +1,6 @@
 {
     // Exclude all files from workspace, enabling IntelliSense support for open files only 
     "python.terminal.activateEnvInCurrentTerminal": true,
-    "python.defaultInterpreterPath": "./.venv/bin/python"
+    "python.defaultInterpreterPath": "./.venv/bin/python",
+    "code-runner.ignoreSelection": true
 }
