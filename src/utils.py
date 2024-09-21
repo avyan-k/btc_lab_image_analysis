@@ -3,6 +3,9 @@ import random
 import numpy as np
 from datetime import datetime
 from pathlib import Path
+import os
+from tqdm import tqdm
+import re
 def load_device(seed:int):
     set_seed(seed)
     # if a macOs then use mps
@@ -34,9 +37,27 @@ def rename_dir(path, src, dst):
     parts = list(path.parts)
     
     # replace part that matches src with dst
-    parts[parts.index(src)] = dst
+    if type(src) == int: #the index may be given directly if path contain same name directory
+        index = src
+    else:
+        index = parts.index(src)
+    parts[index] = dst
     
     return Path(*parts)
 
+def remove_image_label_abbreviations():
+    
+    regex = re.compile(r'([0-Z_ ]*)[a-z]{2}.jpg')
+    for tumor_type in os.listdir('./images'):
+        print(tumor_type)
+        paths = [path for path in Path(f'./images/{tumor_type}').rglob('*.jpg')]
+        for path in tqdm(paths,leave=False,desc='Paths'):
+            basename = os.path.basename(path)
+            dirname = os.path.dirname(path)
+            rmatch = regex.match(str(basename))
+            if rmatch is not None:
+                newpath = os.path.join(dirname,str(rmatch.groups()[0])+'.jpg')
+                os.rename(path,newpath)
 if __name__ == "__main__":
     load_device(0)
+    remove_image_label_abbreviations()

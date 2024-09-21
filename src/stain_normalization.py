@@ -166,6 +166,20 @@ def normalization_evaluation(tumor_type,seed, images_per_case, sample_size):
                 pickle.dump(obj=metric_dict,file=f,protocol=pickle.HIGHEST_PROTOCOL)
     return metric_dict
 
+def save_normalized_images(tumor_type,source_path,seed):
+    image_loader,filepaths,_  = ld.load_data(100,tumor_type,transforms=transforms.ToTensor())
+    filepaths = iter(filepaths)
+    normalizer = get_fitted_macenko(source_path,seed)
+    normalizer = normalizer.to(DEVICE)
+    for batch_index,(images,_) in enumerate(tqdm(image_loader)):
+        images = images.to(DEVICE)
+        normalizer.transform(images)
+        for image in images:
+            filepath = Path(next(filepaths))
+            normalized_filepath = utils.rename_dir(filepath,2,'normalized_images')
+            # print(normalized_filepath)
+            save_image(image,normalized_filepath)
+
 def check_unnormalizable_images(tumor_type,source_path,seed):
     image_loader,filepaths,_  = ld.load_data(1,tumor_type,transforms=transforms.ToTensor())
     normalizer = get_fitted_macenko(source_path,seed)
@@ -190,7 +204,11 @@ if __name__ == "__main__":
     sample_size = 15000
     images_per_case = 3
 
-
+    best_sources = {
+        "vMRT" : "./images/vMRT/images/tumor/AC23029182_A1_1_1881.jpg",
+        "SCCOHT_1" : "./images/SCCOHT_1/images/tumor/AS21032651_D1_63597.jpg",
+        "DDC_UC_1" : "./images/DDC_UC_1/images/normal/AS15043088_62194.jpg"
+    }
 
     for tumor_type in tqdm(os.listdir('./images'),leave=False,desc="Folder"):
         print(tumor_type)
@@ -202,12 +220,14 @@ if __name__ == "__main__":
                 to_delete = line.split()[0]
                 if os.path.isfile(to_delete):
                     os.remove(to_delete)
-        metric_dict = normalization_evaluation(tumor_type=tumor_type,seed= seed,images_per_case=images_per_case, sample_size = sample_size)
-        best_norm_cases = nlargest(3, metric_dict.items(), key = lambda k : k[0][1]) # type: ignore
-        with open(f"./pickle/metrics_{tumor_type}_best_norm_cases.txt",'w') as f:
-                for case, metrics in best_norm_cases:
-                    f.write(f"Case: {case} SSIM: {float(metrics[0])} PSNR: {float(metrics[1])}\n")
-        print(*best_norm_cases)
+        save_normalized_images(tumor_type=tumor_type,source_path=best_sources[tumor_type],seed=seed)
+        # metric_dict = normalization_evaluation(tumor_type=tumor_type,seed= seed,images_per_case=images_per_case, sample_size = sample_size)
+        # best_norm_cases = nlargest(3, metric_dict.items(), key = lambda k : k[0][1]) # type: ignore
+        # with open(f"./pickle/metrics_{tumor_type}_best_norm_cases.txt",'w') as f:
+        #         for case, metrics in best_norm_cases:
+        #             # f.write(f"Case: {case} SSIM: {float(metrics[0])} PSNR: {float(metrics[1])}\n")
+        #             f.write(f"Case: {case} SSIM: {float(metrics)}\n")
+        # print(*best_norm_cases)
 
 
 
