@@ -6,7 +6,7 @@ import shutil
 import torch
 from torchvision import datasets, transforms
 import torchvision.models as torchmodels
-from torch.utils.data import Dataset,DataLoader, Subset
+from torch.utils.data import Dataset,DataLoader, Subset, random_split
 from PIL import Image, UnidentifiedImageError
 from tqdm import tqdm
 from datetime import datetime
@@ -71,6 +71,30 @@ def load_feature_data(batch_size,model_type,tumor_type,sample = False, sample_si
     # valid_loader = DataLoader(valid_dataset, batch_size=3, shuffle=True)
     print(f"Training set size: {len(train_dataset)}")
     return train_loader,image_filenames, classes
+
+def load_training_feature_data(batch_size,model_type,tumor_type):
+    feature_directory = f"./features/{model_type}/{tumor_type}"
+    print(f"\nLoading data from: {feature_directory}")
+    # get full data set 
+    full_train_dataset = FeatureDataset(feature_directory)
+    classes = full_train_dataset.classes
+    train_size = len(full_train_dataset) # compute total size of dataset
+    labels = get_label_proportions(full_train_dataset,classes)
+    print(labels)
+    # Split the datasets into training, validation, and testing sets
+    train_dataset, valid_dataset, _ = random_split(full_train_dataset, [int(train_size*0.9),int(train_size*0.1),train_size - int(train_size*0.9)-int(train_size*0.1)])
+   
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False,num_workers=8)
+    # valid_loader = DataLoader(valid_dataset, batch_size=3, shuffle=True)
+    print(f"Training set size: {len(train_dataset)}")
+    return train_loader,valid_dataset, classes
+
+def get_label_proportions(dataset,classes):
+    labels = torch.zeros(len(classes), dtype=torch.long)
+    for _, target in dataset:
+        labels += target
+    return labels
+
 def setup_resnet_model(seed):
     # # Defines transformations to apply on images
     processing_transforms = transforms.Compose([
@@ -144,6 +168,7 @@ if __name__ == "__main__":
     
     tumor_type = "vMRT"
     seed = 99
+    load_training_feature_data(10,"ResNet",tumor_type)
     # Image.open(r'images\DDC_UC_1/images/undiff\AS15041526_227753du.jpg')
     # DEVICE = utils.load_device(seed)
     # size_of_image_dataset = len([path for path in Path(f"./images/{tumor_type}/images").rglob('*.jpg')])
