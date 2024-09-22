@@ -43,8 +43,8 @@ import loading_data as ld
 import utils
 
 """FEATURE EXTRACTION"""
-def get_and_save_features_array(batch_size, model,transforms, tumor_type, size_of_dataset, sample_size, save=False,save_path = ""):
-    image_loader,filepaths,labels = ld.load_data(batch_size,tumor_type,transforms=transforms,sample=size_of_dataset > sample_size, sample_size=sample_size)
+def get_and_save_features_array(batch_size, model,transforms, image_directory, size_of_dataset, sample_size, save=False,save_path = ""):
+    image_loader,filepaths,labels = ld.load_data(batch_size,image_directory,transforms=transforms,sample=size_of_dataset > sample_size, sample_size=sample_size)
     model = model.to(DEVICE)
     # get features for images in image_loader
     features_list = []
@@ -99,7 +99,6 @@ def feature_normalizer():
 
 """UMAP GENERATION - COLORING BASED ON ANNOTATIONS"""
 def generate_umap_annotation(feature_loader,seed, tumor_type, save_plot = False, umap_annotation_output_path = '', tumor_classes = ['normal', 'tumor'], normalizer = None):
-    print(len(feature_loader))
     features_array, annotations = get_features_from_loader(feature_loader,classes=tumor_classes)
     features_scaled = normalizer.fit_transform(features_array)
     umap_model = umap.UMAP(n_neighbors=15, min_dist=0.1, metric='euclidean', random_state=seed)
@@ -148,10 +147,10 @@ def generate_umap_from_dataset(tumor_type, seed, model_type = "ResNet" ,sample =
     '''
     
     # Paths to directories
-    image_directory = f"./images/{tumor_type}/images"
-    feature_directory = f"./features/{model_type}/{tumor_type}"
+    image_directory = f"./images/{tumor_type}/normalized_images"
+    feature_directory = f"./features/{model_type}/normalized_{tumor_type}"
     Path(os.path.join(feature_directory)).mkdir(parents=True, exist_ok=True) # results directory for this file
-    results_directory = f"./results/umap"
+    results_directory = f"./results/normalized_umap"
     Path(os.path.join(results_directory)).mkdir(parents=True, exist_ok=True) # results directory for this file
     
     assert os.path.isdir(image_directory) #TODO change to expection throwing
@@ -159,7 +158,7 @@ def generate_umap_from_dataset(tumor_type, seed, model_type = "ResNet" ,sample =
     # Set up parameters
     number_of_previous_results = len([name for name in os.listdir(results_directory) if os.path.isfile(name)])
     run_id = f"{model_type}_{utils.get_time()[:10]}_{number_of_previous_results}"
-    batch_size = 100 # tested to be optimal at 100 batches, should be changed manually
+    batch_size = 300 # tested to be optimal at 100 batches, should be changed manually
     size_of_image_dataset = ld.get_size_of_dataset(image_directory,extension='jpg')
     size_of_feature_dataset = ld.get_size_of_dataset(feature_directory,extension='npz')
 
@@ -181,7 +180,7 @@ def generate_umap_from_dataset(tumor_type, seed, model_type = "ResNet" ,sample =
                 case 'VGG16': model,transforms = ld.setup_VGG16_model(seed)
                 case _: raise ValueError("Unknown Model")
         model.eval()
-        get_and_save_features_array(batch_size=batch_size, model= model,transforms = transforms, tumor_type=tumor_type, size_of_dataset = size_of_image_dataset,sample_size = sample_size, save=True,save_path=feature_directory)
+        get_and_save_features_array(batch_size=batch_size, model= model,transforms = transforms, image_directory=image_directory, size_of_dataset = size_of_image_dataset,sample_size = sample_size, save=True,save_path=feature_directory)
      
     image_paths, feature_loader, tumor_classes = get_features_from_disk(tumor_type=tumor_type,model_type=model_type,size_of_dataset=size_of_feature_dataset,sample_size=sample_size)
     

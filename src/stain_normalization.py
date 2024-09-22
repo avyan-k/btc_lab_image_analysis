@@ -4,7 +4,7 @@ import random
 import torch
 from torch.linalg import LinAlgError
 import pickle
-from torchvision import transforms
+from torchvision import transforms,io
 from torchvision.utils import save_image
 import cv2
 from pathlib import Path
@@ -149,7 +149,7 @@ def normalization_evaluation(tumor_type,seed, images_per_case, sample_size):
     
     if sample_size == "all":
         sample_size = ld.get_size_of_dataset(image_directory,extension='jpg')
-    image_loader,_,_  = ld.load_data(300,tumor_type,transforms=transforms.ToTensor(),sample=True,sample_size=sample_size)
+    image_loader,_,_  = ld.load_data(300,image_directory,transforms=transforms.ToTensor(),sample=True,sample_size=sample_size)
     for case,images in tqdm(case_dict.items(),leave=False, desc = "Cases"):
         random_source_paths = random.sample(images,images_per_case)
         for random_source_path in tqdm(random_source_paths,leave=False, desc="Sources"):
@@ -167,33 +167,54 @@ def normalization_evaluation(tumor_type,seed, images_per_case, sample_size):
     return metric_dict
 
 def save_normalized_images(tumor_type,source_path,seed):
-    image_loader,filepaths,_  = ld.load_data(100,tumor_type,transforms=transforms.ToTensor())
-    filepaths = iter(filepaths)
+    batch_size = 300
+    image_directory = f"./images/{tumor_type}/images"
+    image_loader,filepaths,labels  = ld.load_data(batch_size,image_directory,transforms=transforms.ToTensor())
+    for label in set(labels):
+        Path(f"./images/{tumor_type}/normalized_images/{label}").mkdir(parents=True, exist_ok=True)
+    filepath_iterator = iter(filepaths)
     normalizer = get_fitted_macenko(source_path,seed)
     normalizer = normalizer.to(DEVICE)
-    for batch_index,(images,_) in enumerate(tqdm(image_loader)):
+    for batch_index,(images,_) in enumerate(tqdm(image_loader,leave=False)):
         images = images.to(DEVICE)
-        normalizer.transform(images)
+        try:
+            normalizer.transform(images)
+        except (TissueMaskException, LinAlgError,IndexError) as err:
+            unnormalizable_filepaths = filepaths[batch_index*batch_size:min(len(filepaths),(batch_index+1)*batch_size)-1] 
+            check_unnormalizable_images(filepaths=unnormalizable_filepaths,source_path=source_path,seed=seed)#log unnormalizable images
+            for image in images:#try normalizing each image individually
+                try:
+                    normalizer.transform(image.unsqueeze(0)) 
+                except (TissueMaskException, LinAlgError,IndexError) as e: #these three exceptions are already logged, so we skip them
+                    continue
+                filepath = Path(next(filepath_iterator))
+                normalized_filepath = utils.rename_dir(filepath,2,'normalized_images')
+                save_image(image,normalized_filepath)
+            continue
+        except Exception as e:
+            raise e
         for image in images:
-            filepath = Path(next(filepaths))
+            filepath = Path(next(filepath_iterator))
             normalized_filepath = utils.rename_dir(filepath,2,'normalized_images')
             # print(normalized_filepath)
             save_image(image,normalized_filepath)
 
-def check_unnormalizable_images(tumor_type,source_path,seed):
-    image_loader,filepaths,_  = ld.load_data(1,tumor_type,transforms=transforms.ToTensor())
+def check_unnormalizable_images(filepaths,source_path,seed):
+
     normalizer = get_fitted_macenko(source_path,seed)
     normalizer = normalizer.to(DEVICE)
 
-    with open(file=f"./results/{tumor_type}_unnormalizable_images.txt",mode='w') as f:
+    with open(file=f"./results/{tumor_type}_unnormalizable_images.txt",mode='a') as f:
         f.write(f"Checked on {utils.get_time()}\n")
-        for i,(image,_) in enumerate(tqdm(image_loader)):
-            filepath = filepaths[i]
-            image = image.to(DEVICE)
+        for filepath in tqdm(filepaths,leave=False):
+            image = io.read_image(filepath)
+            image = image.unsqueeze(0).to(DEVICE)
             try:
                 normalizer.transform(image)
-            except (TissueMaskException, LinAlgError) as err:
+            except (TissueMaskException, LinAlgError,IndexError) as err:
                 f.write(f"{filepath} {err}\n")
+            except Exception as e: #any other is not logged so raise exception
+                raise e
 
 
 if __name__ == "__main__":
@@ -214,12 +235,13 @@ if __name__ == "__main__":
         print(tumor_type)
         if tumor_type in ['.DS_Store','__MACOSX'] :
             continue
-        with open(file=f"./results/{tumor_type}_unnormalizable_images.txt",mode='r') as f:
-            f.readline()
-            for line in f:
-                to_delete = line.split()[0]
-                if os.path.isfile(to_delete):
-                    os.remove(to_delete)
+        # check_unnormalizable_images(tumor_type,best_sources[tumor_type],seed)
+        # with open(file=f"./results/{tumor_type}_unnormalizable_images.txt",mode='r') as f:
+        #     f.readline()
+        #     for line in f:
+        #         to_delete = line.split()[0]
+        #         if os.path.isfile(to_delete):
+        #             os.remove(to_delete)
         save_normalized_images(tumor_type=tumor_type,source_path=best_sources[tumor_type],seed=seed)
         # metric_dict = normalization_evaluation(tumor_type=tumor_type,seed= seed,images_per_case=images_per_case, sample_size = sample_size)
         # best_norm_cases = nlargest(3, metric_dict.items(), key = lambda k : k[0][1]) # type: ignore

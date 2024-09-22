@@ -40,7 +40,7 @@ def train_model(model,input_shape,train_loader,valid_loader, train_count,valid_c
   losses = np.empty(num_epochs)
   start = time.time()
   Path('./results/training/models').mkdir(parents=True, exist_ok=True)
-  text_file = open(r"results\training\losses.txt", "w",encoding="utf-8")
+  text_file = open(r"./results/training/losses.txt", "w",encoding="utf-8")
   text_file.write(f"Attempting {num_epochs} epochs on date of {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n with model:")
   model_stats = summary(model, (1,input_shape,1), verbose=0)
   text_file.write(f"Model Summary:{str(model_stats)}\n")
@@ -77,15 +77,20 @@ def train_model(model,input_shape,train_loader,valid_loader, train_count,valid_c
 
       # checks if should compute the validation metrics for plotting later
       if iteration % val_iteration == 0 and epoch % 5 == 0:
-        valid_model(model,valid_loader,epoch,iteration,accuracy,valid_loss_function)
+        done = valid_model(model,valid_loader,epoch,iteration,accuracy,valid_loss_function)
+        
+        if done:
+          with open(r"./results/training/losses.txt", "a") as f:
+            f.write(f"\n3 satisfying models trained\n")
+            f.write(f"Losses: \n{losses}\n")
+            return losses
 
     # logging results
-    logging_result(train_loss_function,epoch,start,losses)
+    logging_result(train_loss,epoch,start,losses)
 
-  text_file = open(r"results\training\losses.txt", "a") 
-  text_file.write(f"Losses: \n{losses}\n")
-  text_file.close()
-  return losses
+  with open(r"./results/training/losses.txt", "a") as f:
+    f.write(f"Losses: \n{losses}\n")
+    return losses
 
 def valid_model(cnn,valid_loader,epoch,iteration,accuracy,loss):
 
@@ -113,25 +118,29 @@ def valid_model(cnn,valid_loader,epoch,iteration,accuracy,loss):
 
     # Store the values in the dictionary
     # Out to console
-    text_file = open(r"results\training\losses.txt", "a") 
+    text_file = open(r"./results/training/losses.txt", "a") 
     text_file.write(f"\nEPOCH = {epoch} --- ITERATION = {iteration}\n")
     text_file.write(f"Validation loss = {val_loss} --- Validation accuracy = {val_accuracy}\n\n")
     text_file.close()
     # print(f"EPOCH = {epoch} --- ITERATION = {iteration}")
     # print(f"Validation loss = {val_loss} --- Validation accuracy = {val_accuracy}")
     if val_accuracy > 0.96:
-      torch.save(cnn.state_dict(), rf"results\training\models\{epoch}-{iteration}-{val_accuracy}.pt")
+      number_of_previous_results = len([name for name in os.listdir("./results/training/models") if os.path.isfile(name)])
+      torch.save(cnn.state_dict(), f"./results/training/models/{epoch}-{iteration}-{val_accuracy}.pt")
+      if len([name for name in os.listdir(f"./results/training/models")]) > 5:
+        return True
+    return False
 
 def logging_result(loss,epoch,start,losses):
   
   training_loss = loss.cpu()
-  losses[epoch] = training_loss
+  losses[epoch] = float(training_loss)
   # print(f"\n\nloss: {training_loss.item()} epoch: {epoch}")
   # print("It has now been "+ time.strftime("%Mm%Ss", time.gmtime(time.time() - start))  +"  since the beginning of the program")
-  text_file = open(r"results\training\losses.txt", "a")  
+  text_file = open(r"./results/training/losses.txt", "a")  
   text_file.write(f"loss: {training_loss.item()} epoch: {epoch}\n")
   current =  time.strftime("%Hh%Mm%Ss", time.gmtime(time.time() - start))
-  text_file.write(f"It has now been {current} since the beginning of the program\n")
+  text_file.write(f"It has now been {current} since the beginning of the program/n")
   text_file.close()
   
   
@@ -179,11 +188,11 @@ if __name__ == "__main__":
   summary(classifier,(1, 1000, 1))
 
   train_model(classifier,1000,train_loader,valid_loader,train_count, valid_count,num_epochs = number_of_epochs,number_of_validations = 3,learning_rate = 0.001, weight_decay=0.001)
-#   mlp.load_state_dict(torch.load(r'our_models\MLP\model3.pt', map_location = DEVICE))
+#   mlp.load_state_dict(torch.load(r'our_models/MLP/model3.pt', map_location = DEVICE))
 #   print(test(mlp, land_mark_test))
 #   test_dict = {}
-#   for filename in os.listdir(r"results\training\models"):
-#     model_path = os.path.join(r"results\training\models", filename)
+#   for filename in os.listdir(r"results/training/models"):
+#     model_path = os.path.join(r"results/training/models", filename)
 #     if os.path.isfile(model_path) and model_path.endswith('.pt'):
 #       cnn = mlp = MLP_model(layers = 5, neurons_per_layer = 64,dropout=0, input_shape = (21,2)).to(DEVICE)
 #       cnn.load_state_dict(torch.load(model_path, map_location = DEVICE))

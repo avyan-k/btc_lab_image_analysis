@@ -63,7 +63,9 @@ def load_feature_data(batch_size,model_type,tumor_type,sample = False, sample_si
     print(f"Training set size: {len(train_dataset)}")
     return train_loader,image_filenames, classes
 
-def load_training_feature_data(batch_size,model_type,tumor_type):
+def load_training_feature_data(batch_size,model_type,tumor_type, normalized = False):
+    if normalized:
+        tumor_type = "normalized_"+tumor_type
     feature_directory = f"./features/{model_type}/{tumor_type}"
     print(f"\nLoading data from: {feature_directory}")
     # get full data set 
@@ -86,11 +88,10 @@ def load_training_feature_data(batch_size,model_type,tumor_type):
 
     return (train_loader, valid_loader, test_loader), (train_classes, valid_classes, test_classes)
 
-def load_data(batch_size,tumor_type,transforms = None, sample = False, sample_size = -1):
+def load_data(batch_size,image_directory,transforms = None, sample = False, sample_size = -1):
 
     shutil.rmtree('./images/DDC_UC_1/images/possibly_undiff',ignore_errors=True)
     shutil.rmtree('./images/DDC_UC/images/possibly_undiff',ignore_errors=True)
-    image_directory = f"./images/{tumor_type}/images"
     print(f"\nLoading data from: {image_directory}")
 
     # get full data set 
@@ -170,7 +171,7 @@ if __name__ == "__main__":
     
     tumor_type = "DDC_UC_1"
     seed = 99
-    load_training_feature_data(10,"ResNet",tumor_type)
+    load_training_feature_data(10,"ResNet",tumor_type, normalized=True)
     # Image.open(r'images\DDC_UC_1/images/undiff\AS15041526_227753du.jpg')
     # DEVICE = utils.load_device(seed)
     # size_of_image_dataset = len([path for path in Path(f"./images/{tumor_type}/images").rglob('*.jpg')])

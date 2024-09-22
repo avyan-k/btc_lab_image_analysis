@@ -60,4 +60,3 @@ def remove_image_label_abbreviations():
                 os.rename(path,newpath)
 if __name__ == "__main__":
     load_device(0)
-    remove_image_label_abbreviations()
