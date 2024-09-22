@@ -180,7 +180,7 @@ if __name__ == "__main__":
   seed = 99
   DEVICE = utils.load_device(seed)
   number_of_epochs = 15         
-  loaders, count_dict = ld.load_training_feature_data(batch_size=200,model_type="ResNet",tumor_type="SCCOHT_1")
+  loaders, count_dict = ld.load_training_feature_data(batch_size=200,model_type="ResNet",tumor_type="SCCOHT_1", normalized=True)
   train_loader, valid_loader, test_loader = loaders
   train_count, valid_count, test_count = count_dict
 
@@ -188,15 +188,14 @@ if __name__ == "__main__":
   summary(classifier,(1, 1000, 1))
 
   train_model(classifier,1000,train_loader,valid_loader,train_count, valid_count,num_epochs = number_of_epochs,number_of_validations = 3,learning_rate = 0.001, weight_decay=0.001)
-#   mlp.load_state_dict(torch.load(r'our_models/MLP/model3.pt', map_location = DEVICE))
-#   print(test(mlp, land_mark_test))
-#   test_dict = {}
-#   for filename in os.listdir(r"results/training/models"):
-#     model_path = os.path.join(r"results/training/models", filename)
-#     if os.path.isfile(model_path) and model_path.endswith('.pt'):
-#       cnn = mlp = MLP_model(layers = 5, neurons_per_layer = 64,dropout=0, input_shape = (21,2)).to(DEVICE)
-#       cnn.load_state_dict(torch.load(model_path, map_location = DEVICE))
-#       print(test(cnn, land_mark_test))
-#       test_dict[model_path] = test(cnn, land_mark_test)
-#   if test_dict:
-#     print(max(test_dict, key=test_dict.get))
+
+  test_dict = {}
+  for filename in os.listdir(r"results/training/models"):
+    model_path = os.path.join(r"results/training/models", filename)
+    if os.path.isfile(model_path) and model_path.endswith('.pt'):
+      classifier = Tumor_Classifier(layers=5,neurons_per_layer=64,dropout=0,input_neurons=1000,classes=len(train_count.keys()))
+      classifier.load_state_dict(torch.load(model_path, map_location = DEVICE))
+      print(test(classifier, test_loader))
+      test_dict[model_path] = test(classifier, test_loader)
+  if test_dict:
+    print(max(test_dict, key=test_dict.get))
