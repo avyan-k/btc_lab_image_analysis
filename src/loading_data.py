@@ -114,6 +114,30 @@ def load_data(batch_size,image_directory,transforms = None, sample = False, samp
     # valid_loader = DataLoader(valid_dataset, batch_size=3, shuffle=True)
     return train_loader,filenames,labels
 
+def load_training_image_data(batch_size,tumor_type, transforms = None, normalized = False):
+    image_directory = f"./images/{tumor_type}/images"
+    if normalized:
+        image_directory = f"./images/{tumor_type}/normalized_images"
+    print(f"\nLoading images from: {image_directory}")
+    # get full data set 
+    full_train_dataset = datasets.ImageFolder(image_directory,transform=transforms)
+    train_size = len(full_train_dataset) # compute total size of dataset
+    # Split the datasets into training, validation, and testing sets
+    train_dataset, valid_dataset, test_dataset, _ = random_split(full_train_dataset, [int(train_size*0.8),int(train_size*0.1),int(train_size*0.1),train_size - int(train_size*0.8)-2*int(train_size*0.1)])
+
+    train_classes = dict(sorted(Counter([full_train_dataset.targets[i] for i in train_dataset.indices]).items())) # counter return a dictionnary of the counts, sort and wrap with dict to get dict sorted by key
+    valid_classes = dict(sorted(Counter([full_train_dataset.targets[i] for i in valid_dataset.indices]).items()))
+    test_classes = dict(sorted(Counter([full_train_dataset.targets[i] for i in test_dataset.indices]).items()))
+
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True,num_workers=get_allowed_forks())
+    valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True,num_workers=get_allowed_forks())
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True,num_workers=get_allowed_forks())
+
+    print(f"Training set size: {len(train_dataset)}, Class Proportions: {({full_train_dataset.classes[k]:v for k,v in train_classes.items()})}")
+    print(f"Validation set size: {len(valid_loader)}, Class Proportions: {({full_train_dataset.classes[k]:v for k,v in valid_classes.items()})}")
+    print(f"Test set size: {len(test_loader)}, Class Proportions: {({full_train_dataset.classes[k]:v for k,v in test_classes.items()})}")
+
+    return (train_loader, valid_loader, test_loader), (train_classes, valid_classes, test_classes)
 def setup_resnet_model(seed):
     # # Defines transformations to apply on images
     processing_transforms = transforms.Compose([

@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import timm
 import numpy as np
 import matplotlib.pyplot as plt
 import torch.optim as optim
@@ -35,14 +36,31 @@ class Tumor_Classifier(nn.Module):
           x = F.dropout(x,self.dropout)
       return x
 
-def train_model(model,input_shape,train_loader,valid_loader, train_count,valid_count,num_epochs = 200,number_of_validations = 3,learning_rate = 0.001, weight_decay=0.001):
+class ResNet_Tumor(Tumor_Classifier):
+
+  def __init__(self,classes = 2):
+    super().__init__(
+      layers=5,
+      neurons_per_layer=64,
+      dropout=0,
+      input_neurons=1000,
+      classes=classes
+    )
+    self.resnet = timm.create_model('resnet50', pretrained=False)
+
+  def forward(self, x):
+      x = self.resnet(x)
+      x = super().forward(x)
+      return x
+
+def train_model(model,tumor_type,input_shape,train_loader,valid_loader, train_count,valid_count,num_epochs = 200,number_of_validations = 3,learning_rate = 0.001, weight_decay=0.001):
   
   losses = np.empty(num_epochs)
   start = time.time()
-  Path('./results/training/models').mkdir(parents=True, exist_ok=True)
-  text_file = open(r"./results/training/losses.txt", "w",encoding="utf-8")
+  Path(f'./results/training/models/{str(type(model).__name__)}/{tumor_type}').mkdir(parents=True, exist_ok=True)
+  text_file = open(f"./results/training/losses_{str(type(model).__name__)}_{tumor_type}.txt", "w",encoding="utf-8")
   text_file.write(f"Attempting {num_epochs} epochs on date of {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n with model:")
-  model_stats = summary(model, (1,input_shape,1), verbose=0)
+  model_stats = summary(model, (1,*input_shape), verbose=0)
   text_file.write(f"Model Summary:{str(model_stats)}\n")
   text_file.write('\n')
   text_file.close()
@@ -77,22 +95,22 @@ def train_model(model,input_shape,train_loader,valid_loader, train_count,valid_c
 
       # checks if should compute the validation metrics for plotting later
       if iteration % val_iteration == 0 and epoch % 5 == 0:
-        done = valid_model(model,valid_loader,epoch,iteration,accuracy,valid_loss_function)
+        done = valid_model(model,tumor_type,valid_loader,epoch,iteration,accuracy,valid_loss_function)
         
         if done:
-          with open(r"./results/training/losses.txt", "a") as f:
+          with open(f"./results/training/losses_{str(type(model).__name__)}_{tumor_type}.txt", "a") as f:
             f.write(f"\n3 satisfying models trained\n")
             f.write(f"Losses: \n{losses}\n")
             return losses
 
     # logging results
-    logging_result(train_loss,epoch,start,losses)
+    logging_result(model,train_loss,epoch,start,losses)
 
-  with open(r"./results/training/losses.txt", "a") as f:
+  with open(f"./results/training/losses_{str(type(model).__name__)}_{tumor_type}.txt", "a") as f:
     f.write(f"Losses: \n{losses}\n")
     return losses
 
-def valid_model(cnn,valid_loader,epoch,iteration,accuracy,loss):
+def valid_model(model,tumor_type,valid_loader,epoch,iteration,accuracy,loss):
 
   # stops computing gradients on the validation set
   with torch.no_grad():
@@ -108,7 +126,7 @@ def valid_model(cnn,valid_loader,epoch,iteration,accuracy,loss):
       X_val = X_val.to(DEVICE)
       y_val = y_val.to(DEVICE)
 
-      y_hat = cnn(X_val)
+      y_hat = model(X_val)
       val_accuracy_sum += accuracy(y_hat, y_val)
       val_loss_sum += loss(y_hat, y_val)
 
@@ -118,26 +136,25 @@ def valid_model(cnn,valid_loader,epoch,iteration,accuracy,loss):
 
     # Store the values in the dictionary
     # Out to console
-    text_file = open(r"./results/training/losses.txt", "a") 
+    text_file = open(f"./results/training/losses_{str(type(model).__name__)}_{tumor_type}.txt", "a") 
     text_file.write(f"\nEPOCH = {epoch} --- ITERATION = {iteration}\n")
     text_file.write(f"Validation loss = {val_loss} --- Validation accuracy = {val_accuracy}\n\n")
     text_file.close()
     # print(f"EPOCH = {epoch} --- ITERATION = {iteration}")
     # print(f"Validation loss = {val_loss} --- Validation accuracy = {val_accuracy}")
-    if val_accuracy > 0.96:
-      number_of_previous_results = len([name for name in os.listdir("./results/training/models") if os.path.isfile(name)])
-      torch.save(cnn.state_dict(), f"./results/training/models/{epoch}-{iteration}-{val_accuracy}.pt")
-      if len([name for name in os.listdir(f"./results/training/models")]) > 5:
+    if val_accuracy > 0.95:
+      torch.save(model.state_dict(), f"./results/training/models/{str(type(model).__name__)}/{tumor_type}/{epoch}-{iteration}-{val_accuracy}.pt")
+      if len([name for name in os.listdir(f"./results/training/models/{str(type(model).__name__)}/{tumor_type}")]) > 5:
         return True
     return False
 
-def logging_result(loss,epoch,start,losses):
+def logging_result(model,loss,epoch,start,losses):
   
   training_loss = loss.cpu()
   losses[epoch] = float(training_loss)
   # print(f"\n\nloss: {training_loss.item()} epoch: {epoch}")
   # print("It has now been "+ time.strftime("%Mm%Ss", time.gmtime(time.time() - start))  +"  since the beginning of the program")
-  text_file = open(r"./results/training/losses.txt", "a")  
+  text_file = open(f"./results/training/losses_{str(type(model).__name__)}_{tumor_type}.txt", "a")  
   text_file.write(f"loss: {training_loss.item()} epoch: {epoch}\n")
   current =  time.strftime("%Hh%Mm%Ss", time.gmtime(time.time() - start))
   text_file.write(f"It has now been {current} since the beginning of the program/n")
@@ -161,10 +178,10 @@ def plot_losses(losses):
   plt.show()
   
   
-def test(cnn, test_loader):
-  
+def test(cnn, test_loader, classes =2):
+  print(classes)
   testing_accuracy_sum = 0
-  accuracy = torchmetrics.Accuracy(task="multiclass", num_classes=27).to(DEVICE)
+  accuracy = torchmetrics.Accuracy(task="multiclass", num_classes=classes).to(DEVICE)
   cnn = cnn.to(DEVICE)
   for (X_test, y_test) in test_loader:
     X_test = X_test.to(DEVICE)
@@ -179,23 +196,29 @@ def test(cnn, test_loader):
 if __name__ == "__main__":
   seed = 99
   DEVICE = utils.load_device(seed)
-  number_of_epochs = 15         
-  loaders, count_dict = ld.load_training_feature_data(batch_size=200,model_type="ResNet",tumor_type="SCCOHT_1", normalized=True)
-  train_loader, valid_loader, test_loader = loaders
-  train_count, valid_count, test_count = count_dict
+  number_of_epochs = 20         
 
-  classifier = Tumor_Classifier(layers=5,neurons_per_layer=64,dropout=0,input_neurons=1000,classes=len(train_count.keys()))
-  summary(classifier,(1, 1000, 1))
+  _,transforms = ld.setup_resnet_model(seed)
+  for tumor_type in os.listdir('./images'):
+      print(tumor_type)
+      if tumor_type in ['.DS_Store','__MACOSX'] :
+          continue
+      loaders, count_dict = ld.load_training_image_data(batch_size=300,tumor_type=tumor_type,transforms=transforms, normalized=True)
+      train_loader, valid_loader, test_loader = loaders
+      train_count, valid_count, test_count = count_dict
 
-  train_model(classifier,1000,train_loader,valid_loader,train_count, valid_count,num_epochs = number_of_epochs,number_of_validations = 3,learning_rate = 0.001, weight_decay=0.001)
+      resnet_classifier = ResNet_Tumor(classes=len(train_count.keys()))
+      # summary(resnet_classifier,(1, 3,224,224))
+      
+      train_model(resnet_classifier,tumor_type,input_shape=(3,224,224),train_loader=train_loader,valid_loader=valid_loader,train_count=train_count, valid_count=valid_count,num_epochs = number_of_epochs,number_of_validations = 3,learning_rate = 0.001, weight_decay=0.001)
 
-  test_dict = {}
-  for filename in os.listdir(r"results/training/models"):
-    model_path = os.path.join(r"results/training/models", filename)
-    if os.path.isfile(model_path) and model_path.endswith('.pt'):
-      classifier = Tumor_Classifier(layers=5,neurons_per_layer=64,dropout=0,input_neurons=1000,classes=len(train_count.keys()))
-      classifier.load_state_dict(torch.load(model_path, map_location = DEVICE))
-      print(test(classifier, test_loader))
-      test_dict[model_path] = test(classifier, test_loader)
-  if test_dict:
-    print(max(test_dict, key=test_dict.get))
+  # test_dict = {}
+  # for filename in os.listdir(f"results/training/models/{type(resnet_classifier).__name__}/{tumor_type}"):
+  #   model_path = os.path.join(f"results/training/models/{type(resnet_classifier).__name__}/{tumor_type}", filename)
+  #   if os.path.isfile(model_path) and model_path.endswith('.pt'):
+  #     resnet_classifier = ResNet_Tumor(classes=len(train_count.keys()))
+  #     resnet_classifier.load_state_dict(torch.load(model_path, map_location = DEVICE,weights_only=True))
+  #     print(test(resnet_classifier, test_loader))
+  #     test_dict[model_path] = test(resnet_classifier, test_loader, classes=len(train_count.keys()))
+  # if test_dict:
+  #   print(max(test_dict, key=test_dict.get))
