@@ -72,7 +72,7 @@ def load_training_feature_data(batch_size,model_type,tumor_type, normalized = Fa
     full_train_dataset = FeatureDataset(feature_directory)
     train_size = len(full_train_dataset) # compute total size of dataset
     # Split the datasets into training, validation, and testing sets
-    train_dataset, valid_dataset, test_dataset, _ = random_split(full_train_dataset, [int(train_size*0.8),int(train_size*0.1),int(train_size*0.1),train_size - int(train_size*0.8)-2*int(train_size*0.1)])
+    train_dataset, valid_dataset, test_dataset, _ = random_split(full_train_dataset, [int(train_size*0.002),int(train_size*0.001),int(train_size*0.001),train_size - int(train_size*0.002)-2*int(train_size*0.001)]) #TODO change for entire dataset
 
     train_classes = dict(sorted(Counter([full_train_dataset.targets[i] for i in train_dataset.indices]).items())) # counter return a dictionnary of the counts, sort and wrap with dict to get dict sorted by key
     valid_classes = dict(sorted(Counter([full_train_dataset.targets[i] for i in valid_dataset.indices]).items()))
@@ -123,7 +123,7 @@ def load_training_image_data(batch_size,tumor_type, transforms = None, normalize
     full_train_dataset = datasets.ImageFolder(image_directory,transform=transforms)
     train_size = len(full_train_dataset) # compute total size of dataset
     # Split the datasets into training, validation, and testing sets
-    train_dataset, valid_dataset, test_dataset, _ = random_split(full_train_dataset, [int(train_size*0.8),int(train_size*0.1),int(train_size*0.1),train_size - int(train_size*0.8)-2*int(train_size*0.1)])
+    train_dataset, valid_dataset, test_dataset, _ = random_split(full_train_dataset, [int(train_size*0.8),int(train_size*0.1),int(train_size*0.1),train_size - int(train_size*0.8)-2*int(train_size*0.1)]) 
 
     train_classes = dict(sorted(Counter([full_train_dataset.targets[i] for i in train_dataset.indices]).items())) # counter return a dictionnary of the counts, sort and wrap with dict to get dict sorted by key
     valid_classes = dict(sorted(Counter([full_train_dataset.targets[i] for i in valid_dataset.indices]).items()))
@@ -184,7 +184,7 @@ def count_dict_tensor(count_dict:dict):
     '''
     Converts a dictionnary of the count of each class (returned by load_training_feature_data) into a 1D tensor (required for weighted cross entropy loss)
     '''
-    return torch.tensor([count_dict[k]/sum(count_dict.values()) for k in sorted(count_dict.keys())])
+    return torch.tensor([sum(count_dict.values())/count_dict[k] for k in sorted(count_dict.keys())])
 def get_allowed_forks():
     if os.name == 'nt':
         return 0
