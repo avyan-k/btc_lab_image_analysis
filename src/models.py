@@ -69,7 +69,7 @@ def train_model(model,tumor_type,input_shape,train_loader,valid_loader, train_co
   optimizer = optim.Adam(model.parameters(), lr=learning_rate,weight_decay=weight_decay)
   # Define weighted loss functions and accuracy metrics
   train_loss_function = nn.CrossEntropyLoss(weight=ld.count_dict_tensor(train_count)).to(DEVICE)
-  accuracy = torchmetrics.Accuracy(task="multiclass", num_classes=len(train_count.keys())).to(DEVICE)
+  accuracy = torchmetrics.Accuracy(task="multiclass", num_classes=len(train_count.keys()),average = 'weighted').to(DEVICE)
 
   for epoch in tqdm(range(num_epochs),desc="Epoch",position=3,leave=False):
     train_loss = float('inf')
@@ -92,7 +92,7 @@ def train_model(model,tumor_type,input_shape,train_loader,valid_loader, train_co
       optimizer.step()
 
       # checks if should compute the validation metrics for plotting later
-      if iteration % val_iteration == 0 and epoch % 5 == 0:
+      if iteration % val_iteration == 0 and epoch % 3 == 1:
         done = valid_model(model,tumor_type,valid_loader,valid_count,epoch,iteration,accuracy, model_path)
       
         if done:
@@ -142,9 +142,8 @@ def log_model(model, train_count, valid_count, epochs, input_shape, filepath):
     f.write(f"Attempting {epochs} epochs on date of {utils.get_time()} with model:\n")
     model_stats = summary(model, (1,*input_shape), verbose=0)
     f.write(f"Model Summary:{str(model_stats)}\n")
-    f.write(f"Training Data Weights: {train_count}")
-    f.write(f"Validation Data Weights: {valid_count}")
-    f.write("\n")
+    f.write(f"Training Data Weights: {train_count}\n")
+    f.write(f"Validation Data Weights: {valid_count}\n")
   return
 
 def log_training_results(filepath,losses,epoch,start, current_loss):
@@ -185,22 +184,24 @@ def plot_losses(losses):
   plt.legend() 
   plt.show()
   
-  
+
 def test(cnn, test_loader, test_count):
   testing_accuracy_sum = 0
-  accuracy = torchmetrics.Accuracy(task="multiclass", num_classes=len(test_count.keys())).to(DEVICE)
   cnn = cnn.to(DEVICE)
+  accuracy = torchmetrics.Accuracy(task="multiclass", num_classes=len(test_count.keys()), average = 'weighted').to(DEVICE)
   for (X_test, y_test) in test_loader:
-    X_test = X_test.to(DEVICE)
-    y_test = y_test.to(DEVICE)
-    test_predictions = cnn(X_test)
-    testing_accuracy_sum += accuracy(test_predictions, y_test)
+    with torch.no_grad():
+      X_test = X_test.to(DEVICE)
+      y_test = y_test.to(DEVICE)
+      test_predictions = cnn(X_test)
+      testing_accuracy_sum += accuracy(test_predictions, y_test).cpu()
   
   test_accuracy = testing_accuracy_sum / len(test_loader)
   
   return test_accuracy
 
 if __name__ == "__main__":
+  utils.print_cuda_memory()
   seed = 99
   DEVICE = utils.load_device(seed)
   number_of_epochs = 20         
@@ -211,30 +212,29 @@ if __name__ == "__main__":
       print(tumor_type)
       if tumor_type in ['.DS_Store','__MACOSX'] :
           continue
-      # loaders, count_dict = ld.load_training_image_data(batch_size=300,tumor_type=tumor_type,transforms=transforms, normalized=False)  
-      loaders, count_dict = ld.load_training_feature_data(batch_size=50,model_type="ResNet",tumor_type=tumor_type) #TODO change to ResNet traiing
+      loaders, count_dict = ld.load_training_image_data(batch_size=300,tumor_type=tumor_type,transforms=transforms, normalized=True)  
+      # loaders, count_dict = ld.load_training_feature_data(batch_size=50,model_type="ResNet",tumor_type=tumor_type) 
       train_loader, valid_loader, test_loader = loaders
       train_count, valid_count, test_count = count_dict
-      print(ld.count_dict_tensor(train_count))
 
-      feature_classifier = Tumor_Classifier(layers=5, neurons_per_layer=64, dropout=0, input_neurons=1000, classes=len(train_count.keys())) #TODO change this for ResNet
-      if first_tumor_type:
-        first_tumor_type = False
-        summary(feature_classifier,(1, 1000 ,1))
+      # feature_classifier = Tumor_Classifier(layers=5, neurons_per_layer=64, dropout=0, input_neurons=1000, classes=len(train_count.keys())) 
+      # if first_tumor_type:
+      #   first_tumor_type = False
+        # summary(feature_classifier,(1, 1000 ,1))
       # resnet_classifier = ResNet_Tumor(classes=len(train_count.keys()))
       # if first_tumor_type:
       #   first_tumor_type = False
       #   summary(resnet_classifier,(1, 3,224,224))
-      losses = train_model(feature_classifier,tumor_type,input_shape=(1000,1),train_loader=train_loader,valid_loader=valid_loader,train_count=train_count, valid_count=valid_count,num_epochs = number_of_epochs,number_of_validations = 3,learning_rate = 0.001, weight_decay=0.001)
+      # losses = train_model(resnet_classifier,tumor_type,input_shape=(3,224,224),train_loader=train_loader,valid_loader=valid_loader,train_count=train_count, valid_count=valid_count,num_epochs = number_of_epochs,number_of_validations = 3,learning_rate = 0.001, weight_decay=0.001)
 
-      plot_losses(losses)
-      # test_dict = {}
-      # for filename in os.listdir(f"results/training/models/{type(resnet_classifier).__name__}/{tumor_type}"):
-      #   model_path = os.path.join(f"results/training/models/{type(resnet_classifier).__name__}/{tumor_type}", filename)
-      #   if os.path.isfile(model_path) and model_path.endswith('.pt'):
-      #     resnet_classifier = ResNet_Tumor(classes=len(train_count.keys()))
-      #     resnet_classifier.load_state_dict(torch.load(model_path, map_location = DEVICE,weights_only=True))
-      #     print(test(resnet_classifier, test_loader, test_count=test_count))
-      #     test_dict[model_path] = test(resnet_classifier, test_loader, test_count=test_count)
-      # if test_dict:
-      #   print(max(test_dict, key=test_dict.get))
+      # plot_losses(losses)
+      test_dict = {}
+      for filename in os.listdir(f"results/training/models/ResNet_Tumor/{tumor_type}"):
+        model_path = os.path.join(f"results/training/models/ResNet_Tumor/{tumor_type}", filename)
+        if os.path.isfile(model_path) and model_path.endswith('.pt'):
+          resnet_classifier = ResNet_Tumor(classes=len(train_count.keys()))
+          resnet_classifier.load_state_dict(torch.load(model_path, map_location = DEVICE,weights_only=True))
+          print(test(cnn=resnet_classifier, test_loader=test_loader, test_count=test_count))
+          test_dict[model_path] = test(resnet_classifier, test_loader, test_count=test_count)
+      if test_dict:
+        print(max(test_dict, key=test_dict.get))

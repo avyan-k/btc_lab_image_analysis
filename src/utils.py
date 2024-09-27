@@ -45,6 +45,11 @@ def rename_dir(path, src, dst):
     
     return Path(*parts)
 
+def print_cuda_memory():
+  print("torch.cuda.memory_allocated: %fGB"%(torch.cuda.memory_allocated(0)/1024/1024/1024))
+  print("torch.cuda.memory_reserved: %fGB"%(torch.cuda.memory_reserved(0)/1024/1024/1024))
+  print("torch.cuda.max_memory_reserved: %fGB"%(torch.cuda.max_memory_reserved(0)/1024/1024/1024))
+  
 def remove_image_label_abbreviations():
     
     regex = re.compile(r'([0-Z_ ]*)[a-z]{2}.jpg')

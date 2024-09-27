@@ -21,15 +21,7 @@ from piqa import SSIM, PSNR
 from torch_staintools.normalizer import NormalizerBuilder
 from torch_staintools.functional.tissue_mask import TissueMaskException
 from heapq import nlargest
-def find_cases(image_directory):
-    paths = [path for path in Path(image_directory).rglob('*.jpg')]
-    cases = list(set([ld.get_case(str(path)) for path in tqdm(paths,desc="Case",position=1,leave=False)]))
-    # case_dict = {case:sorted([os.path.join(path.parent,path.name[:-6]+path.name[-4:]) for path in paths if case in path.name]) for case in tqdm(cases,desc="Case",position=1,leave=False)}
-    case_dict = {case:sorted([os.path.join(path.parent,path.name) for path in paths if case in path.name]) for case in tqdm(cases,desc="Case",position=1,leave=False)}
-    print()
-    # for path in tqdm(paths):
-    #     os.rename(os.path.join(path.parent,path.name),os.path.join(path.parent,path.name[:-6]+path.name[-4:]))
-    return case_dict
+
 
 def get_norm_paths(tumor_type):
     '''
@@ -133,7 +125,7 @@ def normalization_evaluation(tumor_type,seed, images_per_case, sample_size):
     Path('./pickle').mkdir(parents=True, exist_ok=True)
     Path(result_directory).mkdir(parents=True, exist_ok=True)
 
-    case_dict = find_cases(image_directory)
+    case_dict = ld.find_cases(image_directory)
     if not os.path.isfile(os.path.join(result_directory,f'sample_cases.pdf')):
         create_case_pdfs(result_directory, case_dict, pages_per_case=1)
 
