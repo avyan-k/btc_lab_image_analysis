@@ -6,7 +6,7 @@ from pathlib import Path
 import os
 from tqdm import tqdm
 import re
-def load_device(seed:int):
+def load_device(seed:int = 99):
     set_seed(seed)
     # if a macOs then use mps
     if torch.backends.mps.is_built(): device = torch.device("mps")

@@ -7,42 +7,46 @@ from PIL import Image
 import utils
 import loading_data as ld
 
+DEVICE = utils.load_device()
+
 class Tumor_Classifier(nn.Module):
 
-	def __init__(self,layers, neurons_per_layer,dropout=0.5, input_neurons = 1000, classes = 2):
-		super(Tumor_Classifier, self).__init__() 
-		self.dropout = dropout
-		self.network = nn.ModuleList()
-		self.network.append(nn.Linear(input_neurons, neurons_per_layer))
-		for x in range(layers-1):
-			self.network.append(nn.Linear(neurons_per_layer, neurons_per_layer*2))
-			neurons_per_layer *= 2
-			self.network.append(nn.Linear(neurons_per_layer, classes))
+  def __init__(self,layers, neurons_per_layer,dropout=0.5, input_neurons = 1000, classes = 2):
+    super(Tumor_Classifier, self).__init__() 
+    self.dropout = dropout
+    self.batch1d = nn.BatchNorm1d(input_neurons,track_running_stats=False,affine=False)
+    self.network = nn.ModuleList()
+    self.network.append(nn.Linear(input_neurons, neurons_per_layer))
+    for x in range(layers-1):
+        self.network.append(nn.Linear(neurons_per_layer, neurons_per_layer*2))
+        neurons_per_layer *= 2
+    self.network.append(nn.Linear(neurons_per_layer, classes))
 
-	def forward(self, x):
-		x = torch.flatten(x, start_dim = 1) # Flatten to a 1D vector
-		x = (F.batch_norm(x.T, training=True,running_mean=torch.zeros(x.shape[0]).to(DEVICE),running_var=torch.ones(x.shape[0]).to(DEVICE))).T
-		for layer in self.network:
-			x = F.leaky_relu(layer(x))
-			x = F.dropout(x,self.dropout)
-		return x
+  def forward(self, x):
+      x = torch.flatten(x, start_dim = 1) # Flatten to a 1D vector
+      x = self.batch1d(x)
+      for layer in self.network:
+          x = F.leaky_relu(layer(x))
+          x = F.dropout(x,self.dropout)
+      return x
 
 class ResNet_Tumor(Tumor_Classifier):
 
-	def __init__(self,classes = 2):
-		super().__init__(
-		layers=5,
-		neurons_per_layer=64,
-		dropout=0,
-		input_neurons=1000,
-		classes=classes
-		)
-		self.resnet = timm.create_model('resnet50', pretrained=False)
+  def __init__(self,classes = 2):
+    super().__init__(
+      layers=5,
+      neurons_per_layer=64,
+      dropout=0,
+      input_neurons=1000,
+      classes=classes
+    )
+    self.resnet = timm.create_model('resnet50', pretrained=False)
 
-	def forward(self, x):
-		x = self.resnet(x)
-		x = super().forward(x)
-		return x
+  def forward(self, x):
+    print(x.shape)
+    x = self.resnet(x)
+    x = super().forward(x)
+    return x
 
 
 if __name__ == "__main__":
