@@ -108,6 +108,7 @@ def load_data(batch_size,image_directory,transforms = None, sample = False, samp
 
     # get full data set
     train_dataset = datasets.ImageFolder(image_directory,transform=transforms)
+    classes = train_dataset.classes
     total = len(train_dataset)
     # print(train_dataset.classes,train_dataset.classes[0],train_dataset.classes[1])
     filenames = [sample[0] for sample in train_dataset.samples]
@@ -124,7 +125,7 @@ def load_data(batch_size,image_directory,transforms = None, sample = False, samp
         print(f"Training set size: {len(train_dataset)}")
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, num_workers=get_allowed_forks()//2)
     # valid_loader = DataLoader(valid_dataset, batch_size=3, shuffle=True)
-    return train_loader,filenames,labels
+    return train_loader,filenames,labels,classes
 
 def load_training_image_data(batch_size,tumor_type, transforms = None, normalized = False):
     image_directory = f"./images/{tumor_type}/images"

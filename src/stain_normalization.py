@@ -141,7 +141,7 @@ def normalization_evaluation(tumor_type,seed, images_per_case, sample_size):
     
     if sample_size == "all":
         sample_size = ld.get_size_of_dataset(image_directory,extension='jpg')
-    image_loader,_,_  = ld.load_data(300,image_directory,transforms=transforms.ToTensor(),sample=True,sample_size=sample_size)
+    image_loader,_,_,_  = ld.load_data(300,image_directory,transforms=transforms.ToTensor(),sample=True,sample_size=sample_size)
     for case,images in tqdm(case_dict.items(),leave=False, desc = "Cases"):
         random_source_paths = random.sample(images,images_per_case)
         for random_source_path in tqdm(random_source_paths,leave=False, desc="Sources"):
@@ -161,7 +161,7 @@ def normalization_evaluation(tumor_type,seed, images_per_case, sample_size):
 def save_normalized_images(tumor_type,source_path,seed):
     batch_size = 300
     image_directory = f"./images/{tumor_type}/images"
-    image_loader,filepaths,labels  = ld.load_data(batch_size,image_directory,transforms=transforms.ToTensor())
+    image_loader,filepaths,labels,_  = ld.load_data(batch_size,image_directory,transforms=transforms.ToTensor())
     for label in set(labels):
         Path(f"./images/{tumor_type}/normalized_images/{label}").mkdir(parents=True, exist_ok=True)
     filepath_iterator = iter(filepaths)

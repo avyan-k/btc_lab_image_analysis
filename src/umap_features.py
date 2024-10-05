@@ -44,7 +44,7 @@ import utils
 
 """FEATURE EXTRACTION"""
 def get_and_save_features_array(batch_size, model,transforms, image_directory, size_of_dataset, sample_size, save=False,save_path = ""):
-    image_loader,filepaths,labels = ld.load_data(batch_size,image_directory,transforms=transforms,sample=size_of_dataset > sample_size, sample_size=sample_size)
+    image_loader,filepaths,labels,_ = ld.load_data(batch_size,image_directory,transforms=transforms,sample=size_of_dataset > sample_size, sample_size=sample_size)
     model = model.to(DEVICE)
     # get features for images in image_loader
     features_list = []

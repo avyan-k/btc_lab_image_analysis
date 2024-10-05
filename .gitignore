@@ -11,3 +11,4 @@ tempCodeRunnerFile.py
 .DS_Store
 .venv*
 *.whl
+*.backup

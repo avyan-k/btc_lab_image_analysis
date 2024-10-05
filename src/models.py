@@ -24,28 +24,26 @@ class Tumor_Classifier(nn.Module):
 
   def forward(self, x):
       x = torch.flatten(x, start_dim = 1) # Flatten to a 1D vector
-      x = self.batch1d(x)
+      if x.shape[0]>1:
+          x = self.batch1d(x)
       for layer in self.network:
           x = F.leaky_relu(layer(x))
           x = F.dropout(x,self.dropout)
       return x
 
-class ResNet_Tumor(Tumor_Classifier):
+class ResNet_Tumor(nn.Module):
 
-  def __init__(self,classes = 2):
-    super().__init__(
-      layers=5,
-      neurons_per_layer=64,
-      dropout=0,
-      input_neurons=1000,
-      classes=classes
-    )
+  def __init__(self,classes = 2, feature_classifier = None):
+    super(ResNet_Tumor, self).__init__() 
+    if feature_classifier is None:
+        self.fc = Tumor_Classifier(layers=5, neurons_per_layer=64, dropout=0, input_neurons=1000, classes=classes)
+    else:
+       self.fc = feature_classifier
     self.resnet = timm.create_model('resnet50', pretrained=False)
 
   def forward(self, x):
-    print(x.shape)
     x = self.resnet(x)
-    x = super().forward(x)
+    x = self.fc(x)
     return x
 
 
@@ -54,7 +52,4 @@ if __name__ == "__main__":
 	seed = 99
 	DEVICE = utils.load_device(seed)
 
-	_,transforms = ld.setup_resnet_model(seed) 
-	loader, filenames, labels = ld.load_data(1,'./images/DDC_UC_1/images/',transforms = transforms, sample = True, sample_size = 1)
-	print(next(loader))
 
