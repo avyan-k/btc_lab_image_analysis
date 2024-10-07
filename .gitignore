@@ -2,8 +2,8 @@ images
 features
 results/Cases
 results/Clusters
+results/training/*.pt
 pickle
-training
 __pycache__/
 *.py[cod]
 *$py.class
