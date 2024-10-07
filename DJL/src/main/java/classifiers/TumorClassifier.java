@@ -15,17 +15,10 @@ import ai.djl.training.util.*;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.util.Scanner;
 
 public class TumorClassifier {
     public static void main(String[] args) throws Exception {
-        DownloadUtils.download(
-                "https://djl-ai.s3.amazonaws.com/mlrepo/model/cv/image_classification/ai/djl/pytorch/resnet/0.0.1/traced_resnet18.pt.gz",
-                "build/pytorch_models/resnet18/resnet18.pt",
-                new ProgressBar());
-        DownloadUtils.download(
-                "https://djl-ai.s3.amazonaws.com/mlrepo/model/cv/image_classification/ai/djl/pytorch/synset.txt",
-                "build/pytorch_models/resnet18/synset.txt",
-                new ProgressBar());
 
         Translator<Image, Classifications> translator = ImageClassificationTranslator.builder()
                 .addTransform(new Resize(255))

@@ -11,7 +11,6 @@ repositories {
 
 dependencies {
     implementation "org.apache.logging.log4j:log4j-slf4j-impl:2.12.1"
-    implementation "org.slf4j:slf4j-simple:1.7.36"
     implementation "ai.djl:api:0.28.0"
     implementation "ai.djl.pytorch:pytorch-engine:0.28.0"
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.2'
