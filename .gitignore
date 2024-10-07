@@ -2,7 +2,7 @@ images
 features
 results/Cases
 results/Clusters
-results/training/*.pt
+*.pt
 pickle
 __pycache__/
 *.py[cod]
