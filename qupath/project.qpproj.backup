@@ -2,14 +2,14 @@
   "version": "0.5.1",
   "createTimestamp": 1715350988658,
   "modifyTimestamp": 1715350988658,
-  "uri": "file:/C:/Users/avyan/Documents/btc_lab_image_analysis/qupath/project.qpproj",
+  "uri": "file:/home/kavy/Documents/Code/Repos/btc_lab_image_analysis/qupath/project.qpproj",
   "lastID": 114,
   "images": [
     {
       "serverBuilder": {
         "builderType": "uri",
         "providerClassName": "qupath.lib.images.servers.openslide.OpenslideServerBuilder",
-        "uri": "file:/C:/Users/avyan/Documents/btc_lab_image_analysis/images/DDC_UC_1/raws/AS21057515%20-%202024-05-07%2019.34.42.ndpi",
+        "uri": "file:///home/kavy/Documents/Code/Repos/btc_lab_image_analysis/images/DDC_UC_1/raws/AS21057515%20-%202024-05-07%2019.34.42.ndpi",
         "args": [],
         "metadata": {
           "name": "AS21057515 - 2024-05-07 19.34.42.ndpi",
@@ -103,7 +103,7 @@
         }
       },
       "entryID": 106,
-      "randomizedName": "4f1d2ceb-aa87-46cb-b91c-3fb3d1c47106",
+      "randomizedName": "01febebb-e5a9-4d78-afec-97c72f87f34b",
       "imageName": "AS21057515 - 2024-05-07 19.34.42.ndpi",
       "metadata": {}
     }
