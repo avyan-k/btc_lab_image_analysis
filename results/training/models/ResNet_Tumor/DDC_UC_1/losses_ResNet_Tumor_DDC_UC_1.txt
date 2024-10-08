@@ -1,0 +1,115 @@
+Attempting 20 epochs on date of 2024-10-07 18:12:01 with model:
+Model Summary:===============================================================================================
+Layer (type:depth-idx)                        Output Shape              Param #
+===============================================================================================
+ResNet_Tumor                                  [300, 3]                  --
+├─ResNet: 1-1                                 [300, 1000]               --
+│    └─Conv2d: 2-1                            [300, 64, 112, 112]       9,408
+│    └─BatchNorm2d: 2-2                       [300, 64, 112, 112]       128
+│    └─ReLU: 2-3                              [300, 64, 112, 112]       --
+│    └─MaxPool2d: 2-4                         [300, 64, 56, 56]         --
+│    └─Sequential: 2-5                        [300, 256, 56, 56]        --
+│    │    └─Bottleneck: 3-1                   [300, 256, 56, 56]        75,008
+│    │    └─Bottleneck: 3-2                   [300, 256, 56, 56]        70,400
+│    │    └─Bottleneck: 3-3                   [300, 256, 56, 56]        70,400
+│    └─Sequential: 2-6                        [300, 512, 28, 28]        --
+│    │    └─Bottleneck: 3-4                   [300, 512, 28, 28]        379,392
+│    │    └─Bottleneck: 3-5                   [300, 512, 28, 28]        280,064
+│    │    └─Bottleneck: 3-6                   [300, 512, 28, 28]        280,064
+│    │    └─Bottleneck: 3-7                   [300, 512, 28, 28]        280,064
+│    └─Sequential: 2-7                        [300, 1024, 14, 14]       --
+│    │    └─Bottleneck: 3-8                   [300, 1024, 14, 14]       1,512,448
+│    │    └─Bottleneck: 3-9                   [300, 1024, 14, 14]       1,117,184
+│    │    └─Bottleneck: 3-10                  [300, 1024, 14, 14]       1,117,184
+│    │    └─Bottleneck: 3-11                  [300, 1024, 14, 14]       1,117,184
+│    │    └─Bottleneck: 3-12                  [300, 1024, 14, 14]       1,117,184
+│    │    └─Bottleneck: 3-13                  [300, 1024, 14, 14]       1,117,184
+│    └─Sequential: 2-8                        [300, 2048, 7, 7]         --
+│    │    └─Bottleneck: 3-14                  [300, 2048, 7, 7]         6,039,552
+│    │    └─Bottleneck: 3-15                  [300, 2048, 7, 7]         4,462,592
+│    │    └─Bottleneck: 3-16                  [300, 2048, 7, 7]         4,462,592
+│    └─SelectAdaptivePool2d: 2-9              [300, 2048]               --
+│    │    └─AdaptiveAvgPool2d: 3-17           [300, 2048, 1, 1]         --
+│    │    └─Flatten: 3-18                     [300, 2048]               --
+│    └─Linear: 2-10                           [300, 1000]               2,049,000
+├─Tumor_Classifier: 1-2                       [300, 3]                  --
+│    └─BatchNorm1d: 2-11                      [300, 1000]               --
+│    └─ModuleList: 2-12                       --                        --
+│    │    └─Linear: 3-19                      [300, 64]                 64,064
+│    │    └─Linear: 3-20                      [300, 128]                8,320
+│    │    └─Linear: 3-21                      [300, 256]                33,024
+│    │    └─Linear: 3-22                      [300, 512]                131,584
+│    │    └─Linear: 3-23                      [300, 1024]               525,312
+│    │    └─Linear: 3-24                      [300, 3]                  3,075
+===============================================================================================
+Total params: 26,322,411
+Trainable params: 26,322,411
+Non-trainable params: 0
+Total mult-adds (T): 1.23
+===============================================================================================
+Input size (MB): 180.63
+Forward/backward pass size (MB): 53354.29
+Params size (MB): 105.29
+Estimated Total Size (MB): 53640.22
+===============================================================================================
+Training Data Weights: {0: 84249, 1: 139845, 2: 7711}
+Validation Data Weights: {0: 10688, 1: 17369, 2: 918}
+Training Results for Epoch 0
+Training loss: 0.33754852414131165
+It has now been 01h21m26s since the beginning of the program
+
+Validation Results for Epoch 1 Iteration 0
+Validation loss = 0.24804683029651642 --- Validation accuracy = 0.9442710280418396
+
+Validation Results for Epoch 1 Iteration 257
+Validation loss = 0.27365702390670776 --- Validation accuracy = 0.875262439250946
+
+Validation Results for Epoch 1 Iteration 514
+Validation loss = 0.20803751051425934 --- Validation accuracy = 0.9367256760597229
+
+Validation Results for Epoch 1 Iteration 771
+Validation loss = 0.24387529492378235 --- Validation accuracy = 0.8884781002998352
+
+Training Results for Epoch 1
+Training loss: 0.24754343926906586
+It has now been 01h56m26s since the beginning of the program
+
+Training Results for Epoch 2
+Training loss: 0.21593570709228516
+It has now been 02h18m04s since the beginning of the program
+
+Training Results for Epoch 3
+Training loss: 0.12119511514902115
+It has now been 02h39m33s since the beginning of the program
+
+Validation Results for Epoch 4 Iteration 0
+Validation loss = 0.13158980011940002 --- Validation accuracy = 0.9650467038154602
+
+Validation Results for Epoch 4 Iteration 257
+Validation loss = 0.11811060458421707 --- Validation accuracy = 0.9627293348312378
+
+Validation Results for Epoch 4 Iteration 514
+Validation loss = 0.10957023501396179 --- Validation accuracy = 0.9632648825645447
+
+Validation Results for Epoch 4 Iteration 771
+Validation loss = 0.09588104486465454 --- Validation accuracy = 0.9740306735038757
+
+Training Results for Epoch 4
+Training loss: 0.05419527739286423
+It has now been 03h05m03s since the beginning of the program
+
+Training Results for Epoch 5
+Training loss: 0.05707037076354027
+It has now been 03h26m25s since the beginning of the program
+
+Training Results for Epoch 6
+Training loss: 0.12339289486408234
+It has now been 03h47m46s since the beginning of the program
+
+Validation Results for Epoch 7 Iteration 0
+Validation loss = 0.11906152218580246 --- Validation accuracy = 0.9569171071052551
+
+Training Results for Epoch 7
+Training loss: 0.0652288943529129
+It has now been 03h48m51s since the beginning of the program
+
