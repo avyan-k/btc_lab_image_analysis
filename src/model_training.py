@@ -67,6 +67,7 @@ def train_model(model,tumor_type,input_shape,train_loader,valid_loader, train_co
 
     # logging results
     log_training_results(loss_path, losses,epoch,start, current_loss=train_loss)
+  plot_losses(losses,epochs,model_path)
   return losses
 
 def valid_model(model,tumor_type,valid_loader, valid_count, epoch,iteration,accuracy, model_directory):
@@ -141,7 +142,7 @@ def to_see_model(path):
   print(model, file=text_file)
   text_file.close()
   
-def plot_losses(losses):
+def plot_losses(losses,number_of_epochs,path):
   xh = np.arange(0,number_of_epochs)
   plt.plot(xh, losses, color = 'b', marker = ',',label = "Loss") 
   plt.xlabel("Epochs Traversed")
@@ -149,6 +150,7 @@ def plot_losses(losses):
   plt.grid() 
   plt.legend() 
   plt.show()
+  plt.savefig(os.path.join(path,"losses.png"))
   
 
 def test(cnn, test_loader, test_count):
@@ -179,7 +181,7 @@ if __name__ == "__main__":
       print(tumor_type)
       if tumor_type in ['.DS_Store','__MACOSX'] :
           continue
-      loaders, count_dict = ld.load_training_image_data(batch_size=batch_size,tumor_type=tumor_type,transforms=transforms, normalized=False)  
+      loaders, count_dict = ld.load_training_image_data(batch_size=batch_size,tumor_type=tumor_type,transforms=transforms, normalized=True)  
       # loaders, count_dict = ld.load_training_feature_data(batch_size=50,model_type="ResNet",tumor_type=tumor_type) 
       train_loader, valid_loader, test_loader = loaders
       train_count, valid_count, test_count = count_dict
@@ -193,9 +195,8 @@ if __name__ == "__main__":
       if first_tumor_type:
         first_tumor_type = False
         summary(resnet_classifier,input_size=(batch_size, 3,224,224))
-      losses = train_model(resnet_classifier,tumor_type,input_shape=(batch_size,3,224,224),train_loader=train_loader,valid_loader=valid_loader,train_count=train_count, valid_count=valid_count,num_epochs = number_of_epochs,number_of_validations = 3,learning_rate = 0.001, weight_decay=0.001)
+      train_model(resnet_classifier,tumor_type,input_shape=(batch_size,3,224,224),train_loader=train_loader,valid_loader=valid_loader,train_count=train_count, valid_count=valid_count,num_epochs = number_of_epochs,number_of_validations = 3,learning_rate = 0.001, weight_decay=0.001)
 
-      plot_losses(losses)
     #   test_dict = {}
     #   for filename in os.listdir(f"results/training/models/ResNet_Tumor/{tumor_type}"):
     #     model_path = os.path.join(f"results/training/models/ResNet_Tumor/{tumor_type}", filename)
