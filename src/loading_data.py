@@ -205,7 +205,7 @@ def load_training_image_data_by_case(batch_size,tumor_type, transforms = None, n
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True,num_workers=get_allowed_forks())
     valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True,num_workers=get_allowed_forks())
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True,num_workers=get_allowed_forks())
-
+    print(training_valid_dataset.classes)
     print(f"Training set size: {len(train_dataset)}, Class Proportions: {({training_valid_dataset.classes[k]:v for k,v in train_classes.items()})}")
     print(f"Validation set size: {len(valid_dataset)}, Class Proportions: {({training_valid_dataset.classes[k]:v for k,v in valid_classes.items()})}")
     print(f"Test set size: {len(test_dataset)}, Class Proportions: {({training_valid_dataset.classes[k]:v for k,v in test_classes.items()})}")

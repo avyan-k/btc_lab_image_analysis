@@ -1,0 +1,40 @@
+{
+    "spec_version": "1.0",
+    "architecture": "resnet50",
+    "num_classes": 3,
+    "class_names": [
+      "normal tissue",
+      "undifferentiated tumor",
+      "well differentiated tumor"
+    ],
+    "name":"Resnet_Tumor",
+    "file":"1-771-0.9662657976150513.pt",
+    "patch_size_pixels": 512,
+    "spacing_um_px": 0.23,
+    "transform": [
+      {
+        "name": "Resize",
+        "arguments": {
+          "size": 224
+        }
+      },
+      {
+        "name": "ToTensor"
+      },
+      {
+        "name": "Normalize",
+        "arguments": {
+          "mean": [
+            0.485, 
+            0.456, 
+            0.406
+          ],
+          "std": [
+            0.229, 
+            0.224, 
+            0.225
+          ]
+        }
+      }
+    ]
+  }
