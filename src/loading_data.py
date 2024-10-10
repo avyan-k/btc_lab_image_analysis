@@ -236,7 +236,9 @@ def setup_VGG16_model(seed):
 
 def get_size_of_dataset(directory, extension):
     return len([path for path in Path(directory).rglob(f'*.{extension}')])
-
+def get_annotation_classes(tumor_type):
+    image_directory = f"./images/{tumor_type}/images"
+    return [name for name in os.listdir(image_directory) if name not in ['.DS_Store','__MACOSX']]
 def check_for_unopenable_files(image_directory,tumor_type):
     with open(file=f"./results/{tumor_type}_corrupted_files.txt",mode='w') as f:
         time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -292,6 +294,7 @@ def get_allowed_forks():
     if os.name == 'nt':
         return 0
     return 8
+    
 if __name__ == "__main__":
     # load_data("vMRT",99,1000)
     # load_feature_data(100,"VMRT",99,100)
