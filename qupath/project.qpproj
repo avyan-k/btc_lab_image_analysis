@@ -2,14 +2,14 @@
   "version": "0.5.1",
   "createTimestamp": 1715350988658,
   "modifyTimestamp": 1715350988658,
-  "uri": "file:/home/kavy/Documents/Code/Repos/btc_lab_image_analysis/qupath/project.qpproj",
+  "uri": "file:/C:/Users/avyan/Documents/btc_lab_image_analysis/qupath/project.qpproj",
   "lastID": 115,
   "images": [
     {
       "serverBuilder": {
         "builderType": "uri",
         "providerClassName": "qupath.lib.images.servers.openslide.OpenslideServerBuilder",
-        "uri": "file:///home/kavy/Documents/Code/Repos/btc_lab_image_analysis/images/DDC_UC_1/raws/AS21057515%20-%202024-05-07%2019.34.42.ndpi",
+        "uri": "file:///C:/Users/avyan/Documents/btc_lab_image_analysis/images/DDC_UC_1/raws/AS21057515%20-%202024-05-07%2019.34.42.ndpi",
         "args": [],
         "metadata": {
           "name": "AS21057515 - 2024-05-07 19.34.42.ndpi",
@@ -103,7 +103,7 @@
         }
       },
       "entryID": 106,
-      "randomizedName": "79690a01-5b74-4003-ab8a-eaadcf2defa2",
+      "randomizedName": "530be370-cadb-4b5c-8a64-3d1fb3062e59",
       "imageName": "AS21057515 - 2024-05-07 19.34.42.ndpi",
       "metadata": {}
     },
@@ -111,10 +111,10 @@
       "serverBuilder": {
         "builderType": "uri",
         "providerClassName": "qupath.lib.images.servers.openslide.OpenslideServerBuilder",
-        "uri": "file:///home/kavy/Documents/Code/Repos/btc_lab_image_analysis/images/DDC_UC_1/raws/AS21057515%20-%202024-05-07%2019.34.42.ndpi",
+        "uri": "file:///C:/Users/avyan/Documents/btc_lab_image_analysis/images/DDC_UC_1/raws/AS21057515%20-%202024-05-07%2019.34.42.ndpi",
         "args": [],
         "metadata": {
-          "name": "AS21057515 - 2024-05-07 19.34.42.ndpi",
+          "name": "AS21057515 - 2024-05-07 19.34.42.ndpi (1)",
           "width": 107520,
           "height": 105984,
           "sizeZ": 1,
@@ -205,7 +205,7 @@
         }
       },
       "entryID": 115,
-      "randomizedName": "62f3e46b-c240-4b0b-88f2-aade64294a6e",
+      "randomizedName": "9b3db42b-80a8-4d04-8a8b-7fa1abc3a308",
       "imageName": "AS21057515 - 2024-05-07 19.34.42.ndpi (1)",
       "metadata": {}
     }

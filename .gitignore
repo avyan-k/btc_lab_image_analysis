@@ -2,7 +2,7 @@ images
 features
 results/Cases
 results/Clusters
-results/training/models/torchscript_models
+**/torchscript_models
 *.pt
 pickle
 __pycache__/

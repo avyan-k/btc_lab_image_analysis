@@ -4,11 +4,11 @@
     "inputPadding": 0,
     "inputResolution": {
       "pixelWidth": {
-        "value": 1.8379396696303443,
+        "value": 7.351758678521377,
         "unit": "µm"
       },
       "pixelHeight": {
-        "value": 1.838235294117647,
+        "value": 7.352941176470588,
         "unit": "µm"
       },
       "zSpacing": {
@@ -32,14 +32,7 @@
           180
         ]
       },
-      "1": {
-        "name": "Ignore*",
-        "color": [
-          180,
-          180,
-          180
-        ]
-      }
+      "1": {}
     }
   },
   "op": {
@@ -54,13 +47,13 @@
       "ops": [
         {
           "type": "op.filters.gaussian",
-          "sigmaX": 0.5,
-          "sigmaY": 0.5
+          "sigmaX": 2.5,
+          "sigmaY": 2.5
         },
         {
           "type": "op.threshold.constant",
           "thresholds": [
-            210.0
+            225.0
           ]
         }
       ]
