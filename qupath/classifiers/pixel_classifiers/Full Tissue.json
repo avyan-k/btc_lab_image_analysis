@@ -4,11 +4,11 @@
     "inputPadding": 0,
     "inputResolution": {
       "pixelWidth": {
-        "value": 14.703517357042754,
+        "value": 1.8379396696303443,
         "unit": "µm"
       },
       "pixelHeight": {
-        "value": 14.705882352941176,
+        "value": 1.838235294117647,
         "unit": "µm"
       },
       "zSpacing": {
@@ -25,11 +25,11 @@
     "outputChannels": [],
     "classificationLabels": {
       "0": {
-        "name": "Other",
+        "name": "Region*",
         "color": [
-          255,
-          200,
-          0
+          0,
+          0,
+          180
         ]
       },
       "1": {
