@@ -50,9 +50,19 @@
       }
     ],
     "op": {
-      "type": "op.threshold.constant",
-      "thresholds": [
-        195.0
+      "type": "op.core.sequential",
+      "ops": [
+        {
+          "type": "op.filters.gaussian",
+          "sigmaX": 0.5,
+          "sigmaY": 0.5
+        },
+        {
+          "type": "op.threshold.constant",
+          "thresholds": [
+            210.0
+          ]
+        }
       ]
     }
   }

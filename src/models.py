@@ -7,7 +7,7 @@ from PIL import Image
 import utils
 import loading_data as ld
 
-DEVICE = utils.load_device()
+
 
 class Tumor_Classifier(nn.Module):
 
@@ -50,6 +50,5 @@ class ResNet_Tumor(nn.Module):
 if __name__ == "__main__":
 	utils.print_cuda_memory()
 	seed = 99
-	DEVICE = utils.load_device(seed)
 
 
