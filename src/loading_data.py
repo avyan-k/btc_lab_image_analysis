@@ -460,7 +460,7 @@ def split_all_images(tumor_type):
         for image_path in tqdm(os.listdir(os.path.join(image_directory,annotation))):
             image_full_path = (os.path.join(image_directory,annotation,image_path))
             image = imread(image_full_path)
-            if image.shape == (512,512,3):
+            if image is not None and image.shape == (512,512,3):
                 for idx,tile in enumerate([image[x:x+256,y:y+256] for x in range(0,512,256) for y in range (0,512,256)]):
                     # print(os.path.splitext(image_full_path)[0]+f"_tile_{idx+1}"+os.path.splitext(image_full_path)[1])
                     imwrite(image_full_path+f"_tile_{idx+1}",tile)
