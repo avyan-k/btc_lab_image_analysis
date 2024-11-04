@@ -6,7 +6,7 @@ from pathlib import Path
 import os
 from tqdm import tqdm
 import re
-
+from cv2 import imread, imwrite
 
 def load_device(seed: int = 99):
     set_seed(seed)
@@ -84,6 +84,23 @@ def remove_image_label_abbreviations():
                 newpath = os.path.join(dirname, str(rmatch.groups()[0]) + ".jpg")
                 os.rename(path, newpath)
 
-
+def split_all_images(tumor_type):
+    image_directory = f"./images/{tumor_type}/images"
+    for annotation in os.listdir(image_directory):
+        if annotation in [".DS_Store", "__MACOSX"]:
+            continue
+        for image_path in tqdm(os.listdir(os.path.join(image_directory,annotation))):
+            image_full_path = (os.path.join(image_directory,annotation,image_path))
+            image = imread(image_full_path)
+            if image.shape == (512,512,3):
+                for idx,tile in enumerate([image[x:x+256,y:y+256] for x in range(0,512,256) for y in range (0,512,256)]):
+                    # print(os.path.splitext(image_full_path)[0]+f"_tile_{idx+1}"+os.path.splitext(image_full_path)[1])
+                    imwrite(image_full_path+f"_tile_{idx+1}",tile)
+                os.remove(image_full_path)
+    return
 if __name__ == "__main__":
     load_device(0)
+    for tumor_type in os.listdir('images'):
+        if tumor_type in [".DS_Store", "__MACOSX"]:
+            continue
+        split_all_images(tumor_type)
