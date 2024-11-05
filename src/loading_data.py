@@ -208,6 +208,7 @@ def load_training_image_data(batch_size, tumor_type, transforms=None, normalized
     transforms = v2.Compose(
         [v2.RandomAffine(degrees=15, translate=(0.15, 0.15)), transforms]
     )
+    print(image_directory)
     # get full data set
     full_train_dataset = datasets.ImageFolder(image_directory, transform=transforms)
     train_size = len(full_train_dataset)  # compute total size of dataset
@@ -436,8 +437,11 @@ def get_annotation_classes(tumor_type):
     ]
 
 
-def check_for_unopenable_files(tumor_type):
-    image_directory = f"./images/{tumor_type}/images"
+def check_for_unopenable_files(tumor_type, norm = False):
+    if norm:
+        image_directory = f"./images/{tumor_type}/normalized_images"
+    else:
+        image_directory = f"./images/{tumor_type}/images"
     with open(file=f"./results/{tumor_type}_corrupted_files.txt", mode="w") as f:
         time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         f.write(f"Checked on {time}\n")
@@ -445,25 +449,32 @@ def check_for_unopenable_files(tumor_type):
         for image_path in tqdm(images_paths):
             try:
                 Image.open(image_path)
-                cv2image = imread(image_path)
-            except UnidentifiedImageError or cv2image == None:
+                cv2image = imread(str(image_path))
+                if cv2image is None:
+                    raise UnidentifiedImageError
+            except UnidentifiedImageError:
                 f.write(str(image_path))
 
-def split_all_images(tumor_type):
+def split_all_images(tumor_type,norm = False):
     '''
     Splits all 512 x 512 image into 4 256 x 256 tiles, saves them and deletes original
     '''
-    image_directory = f"./images/{tumor_type}/normalized_images"
+    if norm:
+        image_directory = f"./images/{tumor_type}/normalized_images"
+    else:
+        image_directory = f"./images/{tumor_type}/images"
     for annotation in os.listdir(image_directory):
         if annotation in [".DS_Store", "__MACOSX"]:
             continue
         for image_path in tqdm(os.listdir(os.path.join(image_directory,annotation))):
+            if 'tile' in image_path:
+                continue
             image_full_path = (os.path.join(image_directory,annotation,image_path))
             image = imread(image_full_path)
-            if image is not None and image.shape == (512,512,3):
+            if image.shape == (512,512,3):
                 for idx,tile in enumerate([image[x:x+256,y:y+256] for x in range(0,512,256) for y in range (0,512,256)]):
                     # print(os.path.splitext(image_full_path)[0]+f"_tile_{idx+1}"+os.path.splitext(image_full_path)[1])
-                    imwrite(image_full_path+f"_tile_{idx+1}",tile)
+                    imwrite(os.path.splitext(image_full_path)[0]+f"_tile_{idx+1}"+os.path.splitext(image_full_path)[1],tile)
                 os.remove(image_full_path)
 
 def get_case_subsets(case_dict, intersection, max_size):
@@ -545,6 +556,27 @@ if __name__ == "__main__":
     tumor_type = "DDC_UC_1"
     image_directory = f"./images/{tumor_type}/images"
     seed = 99
+    # print(*list(os.listdir('./images/DDC_UC_1/normalized_images/undiff')),sep='\n')
+    # x = imread('./images/DDC_UC_1/normalized_images/undiff/AS19060903_275284.jpg_tile_3')
+    for tumor_type in os.listdir('images'):
+        image_directory = f"./images/{tumor_type}/normalized_images"
+        if tumor_type in [".DS_Store", "__MACOSX"]:
+            continue
+        print(tumor_type)
+        check_for_unopenable_files(tumor_type)
+        split_all_images(tumor_type)
+
+        # for annotation in os.listdir(image_directory):
+        #     if annotation in [".DS_Store", "__MACOSX"]:
+        #         continue
+        #     for image_path in os.listdir(os.path.join(image_directory,annotation)):
+        #         image_full_path = (os.path.join(image_directory,annotation,image_path))
+        #         if not image_full_path.endswith('.jpg') and not image_full_path.endswith('.sh'):
+        #             print(image_full_path)
+        #             tile_number = image_full_path.split('_')[-1]
+        #             image = image_full_path.split('.')[1]
+        #             print(f"{image}_tile_{tile_number}.jpg")
+        #             os.rename(image_full_path,f"./{image}_tile_{tile_number}.jpg")
     # load_training_image_data(100, tumor_type, normalized=False)
     # load_training_image_data_by_case(100, tumor_type, normalized=False)
     # cases = {k:len(v) for k,v in find_cases(image_directory).items()}
@@ -580,10 +612,6 @@ if __name__ == "__main__":
     #     index += 1
     # print(total_error)
     # print(image_labels==feature_labels)
-    for tumor_type in os.listdir('images'):
-        if tumor_type in [".DS_Store", "__MACOSX"]:
-            continue
-        check_for_unopenable_files(tumor_type)
-        split_all_images(tumor_type)
+
     # check_for_unopenable_files(image_directory = f"./images/{tumor_type}/images",tumor_type=tumor_type)
     # x = Image.open(f"./images/DDC_UC_1/images/undiff/AS15041526_227753du.jpg")
