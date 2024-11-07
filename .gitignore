@@ -4,7 +4,6 @@ results/Cases
 results/Clusters
 **/torchscript_models
 *.pt
-pickle
 __pycache__/
 *.py[cod]
 *$py.class
@@ -13,3 +12,4 @@ tempCodeRunnerFile.py
 .venv*
 *.whl
 *.backup
+*.pkl

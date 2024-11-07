@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import torch.optim as optim
 from tqdm import tqdm
+from torcheval.metrics import MulticlassAUROC
 import torchmetrics
 import os
 from pathlib import Path
@@ -210,15 +211,15 @@ def plot_losses(losses, number_of_epochs, path):
 def test(model, test_loader, test_count):
     testing_accuracy_sum = 0
     model = model.to(DEVICE)
-    accuracy = torchmetrics.Accuracy(
-        task="multiclass", num_classes=len(test_count.keys()), average="weighted"
-    ).to(DEVICE)
-    for X_test, y_test in test_loader:
+    accuracy = MulticlassAUROC(num_classes=len(test_count.keys())).to(DEVICE)
+    for X_test, y_test in tqdm(test_loader):
         with torch.no_grad():
             X_test = X_test.to(DEVICE)
             y_test = y_test.to(DEVICE)
             test_predictions = model(X_test)
-            testing_accuracy_sum += accuracy(test_predictions, y_test).cpu()
+            accuracy.update(test_predictions,y_test)
+            testing_accuracy_sum += accuracy.compute().cpu()
+            accuracy.reset()
 
     test_accuracy = testing_accuracy_sum / len(test_loader)
 
@@ -232,17 +233,16 @@ if __name__ == "__main__":
     number_of_epochs = 20
     batch_size = 300
 
-    _, transforms = ld.setup_resnet_model(seed)
 
     for idx,tumor_type in enumerate(os.listdir("./images")):
         print(tumor_type)
-        if tumor_type in [".DS_Store", "__MACOSX"]:
+        if tumor_type in [".DS_Store", "__MACOSX","DDC_UC_1"]:
             continue
         loaders, count_dict = ld.load_training_image_data(
             batch_size=batch_size,
+            samples_per_class=10000,
             tumor_type=tumor_type,
-            transforms=transforms,
-            normalized=True,
+            normalized=False,
         )
         train_loader, valid_loader, test_loader = loaders
         train_count, valid_count, test_count = count_dict
@@ -251,27 +251,26 @@ if __name__ == "__main__":
         resnet_classifier = md.ResNet_Tumor(classes=len(train_count.keys()))
         if idx == 0:
             summary(resnet_classifier, input_size=(batch_size, 3, 224, 224))
-        train_model(
-            resnet_classifier,
-            tumor_type,
-            input_shape=(batch_size, 3, 224, 224),
-            train_loader=train_loader,
-            valid_loader=valid_loader,
-            train_count=train_count,
-            valid_count=valid_count,
-            num_epochs=number_of_epochs,
-            number_of_validations=3,
-            learning_rate=0.001,
-            weight_decay=0.001,
-        )
-
-    #   test_dict = {}
-    #   for filename in os.listdir(f"results/training/models/ResNet_Tumor/{tumor_type}"):
-    #     model_path = os.path.join(f"results/training/models/ResNet_Tumor/{tumor_type}", filename)
-    #     if os.path.isfile(model_path) and model_path.endswith('.pt'):
-    #       resnet_classifier = ResNet_Tumor(classes=len(train_count.keys()))
-    #       resnet_classifier.load_state_dict(torch.load(model_path, map_location = DEVICE,weights_only=True))
-    #       print(test(cnn=resnet_classifier, test_loader=test_loader, test_count=test_count))
-    #       test_dict[model_path] = test(resnet_classifier, test_loader, test_count=test_count)
-    #   if test_dict:
-    #     print(max(test_dict, key=test_dict.get))
+        # train_model(
+        #     resnet_classifier,
+        #     tumor_type,
+        #     input_shape=(batch_size, 3, 224, 224),
+        #     train_loader=train_loader,
+        #     valid_loader=valid_loader,
+        #     train_count=train_count,
+        #     valid_count=valid_count,
+        #     num_epochs=number_of_epochs,
+        #     number_of_validations=3,
+        #     learning_rate=0.001,
+        #     weight_decay=0.001,
+        # )
+        test_dict = {}
+        for filename in os.listdir(f"results/training/models/ResNet_Tumor/{tumor_type}"):
+            model_path = os.path.join(f"results/training/models/ResNet_Tumor/{tumor_type}", filename)
+            print(model_path)
+            if os.path.isfile(model_path) and model_path.endswith('.pt'):
+                resnet_classifier.load_state_dict(torch.load(model_path, map_location = DEVICE,weights_only=True))
+                test_dict[model_path] = test(resnet_classifier, test_loader, test_count=test_count)
+                print(test_dict[model_path])
+        if test_dict:
+            print(max(test_dict, key=test_dict.get))

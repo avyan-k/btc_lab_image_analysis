@@ -6,7 +6,6 @@ from pathlib import Path
 import os
 from tqdm import tqdm
 import re
-from cv2 import imread, imwrite
 
 def load_device(seed: int = 99):
     set_seed(seed)

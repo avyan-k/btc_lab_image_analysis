@@ -1,8 +1,8 @@
-import random
+import pickle
 import numpy as np
 import os
 from pathlib import Path
-import shutil
+import time
 import torch
 from torchvision import datasets, transforms
 from torchvision.transforms import v2
@@ -13,6 +13,7 @@ from tqdm import tqdm
 from datetime import datetime
 from collections import Counter
 from cv2 import imread, imwrite
+import utils
 
 
 class FeatureDataset(datasets.DatasetFolder):
@@ -32,42 +33,83 @@ class FeatureDataset(datasets.DatasetFolder):
 
 
 class TumorImageDataset(datasets.ImageFolder):
-    def __init__(self, datapath: str, cases=[], transform=None):
+    def __init__(self, datapath: str, cases=None, transform=None):
         """
         Arguments:
             datapath (string): Directory in which the class folders are located.
             transform (callable, optional): Optional transform to be applied
                 on a sample.
         """
+        if cases is None:
+            cases = []
         super().__init__(
             root=datapath,
             transform=transform,
             is_valid_file=lambda x: get_case(os.path.basename(x)) in cases,
         )
+class BalancedTumorImageData(datasets.ImageFolder):
+    def __init__(self, datapath: str, k:int,transform=None,target_transform=None):
+        '''
+        k represents the number to sample from each class
+        '''
+        super().__init__(root=datapath, transform=transform, target_transform=target_transform)
+        self.k = k
+        self.balanced_indices = self._get_balanced_indices()
+    def _get_balanced_indices(self):
+        print(self.classes)
+        balanced_class_indices = []
+        for class_label in range(len(self.classes)):
+            all_indices = np.where(np.array(self.targets) == class_label)[0] #find all instance of class, 0 being success
+            balanced_class_indices.extend(list(all_indices[:min(len(all_indices)-1,self.k)]))
+        return balanced_class_indices
+    
+    def __getitem__(self, idx):
+        balanced_idx = self.balanced_indices[idx]
+        return super().__getitem__(balanced_idx)
 
-def load_training_image_data(batch_size, tumor_type, transforms=None, normalized=False):
+    def __len__(self):
+        return len(self.balanced_indices)
+
+def load_training_image_data(batch_size,samples_per_class, tumor_type, normalized=False):
     image_directory = f"./images/{tumor_type}/images"
     if normalized:
         image_directory = f"./images/{tumor_type}/normalized_images"
     print(f"\nLoading images from: {image_directory}")
-    transforms = v2.Compose(
-        [v2.RandomAffine(degrees=15, translate=(0.15, 0.15)), transforms]
-    )
-    print(image_directory)
-    # get full data set
-    full_train_dataset = datasets.ImageFolder(image_directory, transform=transforms)
-    random_sampler = 
-    # Split the datasets into training, validation, and testing sets
-    # train_dataset, valid_dataset, test_dataset, _ = random_split(
-    #     full_train_dataset,
-    #     [
-    #         int(train_size * 0.8),
-    #         int(train_size * 0.1),
-    #         int(train_size * 0.1),
-    #         train_size - int(train_size * 0.8) - 2 * int(train_size * 0.1),
-    #     ],
+    # transforms = v2.Compose(
+    #     [v2.RandomAffine(degrees=15, translate=(0.15, 0.15)), transforms]
     # )
-    train_dataset, valid_dataset, test_dataset = random_split(full_train_dataset,[10000,10000,10000])
+    # get full data set
+    
+    pickle_path = f"./pickle/mean_std_{tumor_type}_{samples_per_class}_dataset.pkl"
+    try:
+        with open(pickle_path, "rb") as f:
+            means,stds = pickle.load(f)
+    except (EOFError,FileNotFoundError): #if the file does not exist, load dataset without transforming and compute mean and stf
+        dataset = BalancedTumorImageData(image_directory,k=samples_per_class, transform=transforms.ToTensor())
+        means,stds = compute_and_save_mean_std_per_channel(dataset=dataset,tumor_type=tumor_type,k=samples_per_class)
+
+    processing_transforms = transforms.Compose(
+        [
+            transforms.Resize((224, 224)),  # ResNet expects 224x224 images
+            transforms.ToTensor(),  # Converts the image to a PyTorch tensor, which also scales the pixel values to the range [0, 1]
+            transforms.Normalize(
+                mean=means, std=stds
+            ),  # Normalizes the image tensor using  mean and standard deviation 
+        ]
+    )
+    full_dataset = BalancedTumorImageData(image_directory,k=samples_per_class, transform=processing_transforms)
+    train_size = len(full_dataset)
+
+    # Split the datasets into training, validation, and testing sets
+    train_dataset, valid_dataset, test_dataset, _ = random_split(
+        full_dataset,
+        [
+            int(train_size * 0.8),
+            int(train_size * 0.1),
+            int(train_size * 0.1),
+            train_size - int(train_size * 0.8) - 2 * int(train_size * 0.1),
+        ],
+    )
 
     processing_transforms = transforms.Compose(
         [
@@ -82,21 +124,21 @@ def load_training_image_data(batch_size, tumor_type, transforms=None, normalized
     train_classes = dict(
         sorted(
             Counter(
-                [full_train_dataset.targets[i] for i in train_dataset.indices]
+                [full_dataset.targets[i] for i in train_dataset.indices]
             ).items()
         )
     )  # counter return a dictionnary of the counts, sort and wrap with dict to get dict sorted by key
     valid_classes = dict(
         sorted(
             Counter(
-                [full_train_dataset.targets[i] for i in valid_dataset.indices]
+                [full_dataset.targets[i] for i in valid_dataset.indices]
             ).items()
         )
     )
     test_classes = dict(
         sorted(
             Counter(
-                [full_train_dataset.targets[i] for i in test_dataset.indices]
+                [full_dataset.targets[i] for i in test_dataset.indices]
             ).items()
         )
     )
@@ -121,13 +163,13 @@ def load_training_image_data(batch_size, tumor_type, transforms=None, normalized
     )
 
     print(
-        f"Training set size: {len(train_dataset)}, Class Proportions: {({full_train_dataset.classes[k]:v for k,v in train_classes.items()})}"
+        f"Training set size: {len(train_dataset)}, Class Proportions: {({full_dataset.classes[k]:v for k,v in train_classes.items()})}"
     )
     print(
-        f"Validation set size: {len(valid_dataset)}, Class Proportions: {({full_train_dataset.classes[k]:v for k,v in valid_classes.items()})}"
+        f"Validation set size: {len(valid_dataset)}, Class Proportions: {({full_dataset.classes[k]:v for k,v in valid_classes.items()})}"
     )
     print(
-        f"Test set size: {len(test_dataset)}, Class Proportions: {({full_train_dataset.classes[k]:v for k,v in test_classes.items()})}"
+        f"Test set size: {len(test_dataset)}, Class Proportions: {({full_dataset.classes[k]:v for k,v in test_classes.items()})}"
     )
 
     return (train_loader, valid_loader, test_loader), (
@@ -353,8 +395,24 @@ def find_cases(image_directory):
     }
     return case_dict
 
-def compute_mean_std_per_channel(full_data_loader):
-    pass
+def compute_and_save_mean_std_per_channel(dataset,tumor_type,k=-1):
+    device = utils.load_device()
+    if k==-1:
+        k = len(dataset)
+    loader = DataLoader(dataset, batch_size=200, num_workers=get_allowed_forks(), shuffle=False)
+    mean = torch.zeros(3).to(device)
+    std = torch.zeros(3).to(device)
+    for images, _ in tqdm(loader):
+        images = images.to(device)
+        for i in range(3):
+            mean[i] += images[:,i,:,:].mean()
+            std[i] += images[:,i,:,:].std()
+    mean.div_(len(loader)).cpu()
+    std.div_(len(loader)).cpu()
+    pickle_path = f"./pickle/mean_std_{tumor_type}_{k}_dataset.pkl"    
+    with open(pickle_path, "wb") as f:
+            pickle.dump(obj=(mean,std), file=f, protocol=pickle.HIGHEST_PROTOCOL)
+    return mean,std
 
 
 def count_dict_tensor(count_dict: dict):
@@ -379,13 +437,19 @@ if __name__ == "__main__":
     tumor_type = "DDC_UC_1"
     image_directory = f"./images/{tumor_type}/images"
     seed = 99
+    k = 10000
     # print(*list(os.listdir('./images/DDC_UC_1/normalized_images/undiff')),sep='\n')
     # x = imread('./images/DDC_UC_1/normalized_images/undiff/AS19060903_275284.jpg_tile_3')
     for tumor_type in os.listdir('images'):
-        image_directory = f"./images/{tumor_type}/normalized_images"
         if tumor_type in [".DS_Store", "__MACOSX"]:
             continue
         print(tumor_type)
-        check_for_unopenable_files(tumor_type)
+        image_directory = f"./images/{tumor_type}/images"
+        
+        start_time = time.time()
+        load_training_image_data(batch_size=100,samples_per_class=10000,tumor_type=tumor_type)
+        print(f"--- {(time.time() - start_time)} seconds to load {k} points---")
+
+        # check_for_unopenable_files(tumor_type)
 
 
