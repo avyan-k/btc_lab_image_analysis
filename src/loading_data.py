@@ -45,161 +45,6 @@ class TumorImageDataset(datasets.ImageFolder):
             is_valid_file=lambda x: get_case(os.path.basename(x)) in cases,
         )
 
-
-def load_feature_data(batch_size, model_type, tumor_type, sample=False, sample_size=-1):
-    """
-    sample: return a subset of the data, sample_size must be specified
-    returns
-    feature_loader: DataLoader loading features
-    image_filenames: filename of image being extracted
-    Classes: list of possible annotations
-    """
-    feature_directory = f"./features/{model_type}/{tumor_type}"
-    image_directory = f"./images/{tumor_type}/images"
-    print(
-        f"\nLoading data from: {feature_directory}\nImages Filenames from {image_directory}"
-    )
-    # get full data set
-    train_dataset = FeatureDataset(feature_directory)
-    classes = train_dataset.classes
-    # print(train_dataset.classes,train_dataset.classes[0],train_dataset.classes[1])
-    image_filenames = [path for path in Path(image_directory).rglob("*.jpg")]
-    # print(len(image_filenames),len(train_dataset.paths))
-    # labels = train_dataset.labels
-    if sample:
-        assert sample_size > 0
-        # split dataset
-        indices = random.sample(
-            range(len(train_dataset)), min(sample_size, len(train_dataset))
-        )
-        train_dataset = Subset(train_dataset, indices)
-        image_filenames = [image_filenames[i] for i in indices]
-        # labels = [labels[i] for i in indices]
-    # print(filenames,labels,sep='\n')
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=get_allowed_forks(),
-    )
-    # valid_loader = DataLoader(valid_dataset, batch_size=3, shuffle=True)
-    print(f"Training set size: {len(train_dataset)}")
-    return train_loader, image_filenames, classes
-
-
-def load_training_feature_data(batch_size, model_type, tumor_type, normalized=False):
-    if normalized:
-        tumor_type = "normalized_" + tumor_type
-    feature_directory = f"./features/{model_type}/{tumor_type}"
-    print(f"\nLoading data from: {feature_directory}")
-    # get full data set
-    full_train_dataset = FeatureDataset(feature_directory)
-    train_size = len(full_train_dataset)  # compute total size of dataset
-    # Split the datasets into training, validation, and testing sets
-    train_dataset, valid_dataset, test_dataset, _ = random_split(
-        full_train_dataset,
-        [
-            int(train_size * 0.8),
-            int(train_size * 0.1),
-            int(train_size * 0.1),
-            train_size - int(train_size * 0.8) - 2 * int(train_size * 0.1),
-        ],
-    )
-
-    train_classes = dict(
-        sorted(
-            Counter(
-                [full_train_dataset.targets[i] for i in train_dataset.indices]
-            ).items()
-        )
-    )  # counter return a dictionnary of the counts, sort and wrap with dict to get dict sorted by key
-    valid_classes = dict(
-        sorted(
-            Counter(
-                [full_train_dataset.targets[i] for i in valid_dataset.indices]
-            ).items()
-        )
-    )
-    test_classes = dict(
-        sorted(
-            Counter(
-                [full_train_dataset.targets[i] for i in test_dataset.indices]
-            ).items()
-        )
-    )
-
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=get_allowed_forks(),
-    )
-    valid_loader = DataLoader(
-        valid_dataset,
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=get_allowed_forks(),
-    )
-    test_loader = DataLoader(
-        test_dataset,
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=get_allowed_forks(),
-    )
-
-    print(
-        f"Training set size: {len(train_dataset)}, Class Proportions: {({full_train_dataset.classes[k]:v for k,v in train_classes.items()})}"
-    )
-    print(
-        f"Validation set size: {len(valid_loader)}, Class Proportions: {({full_train_dataset.classes[k]:v for k,v in valid_classes.items()})}"
-    )
-    print(
-        f"Test set size: {len(test_loader)}, Class Proportions: {({full_train_dataset.classes[k]:v for k,v in test_classes.items()})}"
-    )
-
-    return (train_loader, valid_loader, test_loader), (
-        train_classes,
-        valid_classes,
-        test_classes,
-    )
-
-
-def load_data(
-    batch_size, image_directory, transforms=None, sample=False, sample_size=-1
-):
-    shutil.rmtree("./images/DDC_UC_1/images/possibly_undiff", ignore_errors=True)
-    shutil.rmtree("./images/DDC_UC/images/possibly_undiff", ignore_errors=True)
-    print(f"\nLoading data from: {image_directory}")
-
-    # get full data set
-    train_dataset = datasets.ImageFolder(image_directory, transform=transforms)
-    classes = train_dataset.classes
-    total = len(train_dataset)
-    # print(train_dataset.classes,train_dataset.classes[0],train_dataset.classes[1])
-    filenames = [sample[0] for sample in train_dataset.samples]
-    labels = [train_dataset.classes[sample[1]] for sample in train_dataset.samples]
-    if sample:
-        assert sample_size > 0
-        # split dataset
-        indices = random.sample(
-            range(len(train_dataset)), min(sample_size, len(train_dataset))
-        )
-        train_dataset = Subset(train_dataset, indices)
-        filenames = [filenames[i] for i in indices]  # type: ignore
-        labels = [labels[i] for i in indices]
-        print(f"Training set size: {len(train_dataset)} sampled out of {total}")
-    else:
-        print(f"Training set size: {len(train_dataset)}")
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=get_allowed_forks() // 2,
-    )
-    # valid_loader = DataLoader(valid_dataset, batch_size=3, shuffle=True)
-    return train_loader, filenames, labels, classes
-
-
 def load_training_image_data(batch_size, tumor_type, transforms=None, normalized=False):
     image_directory = f"./images/{tumor_type}/images"
     if normalized:
@@ -211,16 +56,27 @@ def load_training_image_data(batch_size, tumor_type, transforms=None, normalized
     print(image_directory)
     # get full data set
     full_train_dataset = datasets.ImageFolder(image_directory, transform=transforms)
-    train_size = len(full_train_dataset)  # compute total size of dataset
+    random_sampler = 
     # Split the datasets into training, validation, and testing sets
-    train_dataset, valid_dataset, test_dataset, _ = random_split(
-        full_train_dataset,
+    # train_dataset, valid_dataset, test_dataset, _ = random_split(
+    #     full_train_dataset,
+    #     [
+    #         int(train_size * 0.8),
+    #         int(train_size * 0.1),
+    #         int(train_size * 0.1),
+    #         train_size - int(train_size * 0.8) - 2 * int(train_size * 0.1),
+    #     ],
+    # )
+    train_dataset, valid_dataset, test_dataset = random_split(full_train_dataset,[10000,10000,10000])
+
+    processing_transforms = transforms.Compose(
         [
-            int(train_size * 0.8),
-            int(train_size * 0.1),
-            int(train_size * 0.1),
-            train_size - int(train_size * 0.8) - 2 * int(train_size * 0.1),
-        ],
+            transforms.Resize((224, 224)),  # ResNet expects 224x224 images
+            transforms.ToTensor(),  # Converts the image to a PyTorch tensor, which also scales the pixel values to the range [0, 1]
+            transforms.Normalize(
+                mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+            ),  # Normalizes the image tensor using the mean and standard deviation values that were used when training the ResNet model (usually on ImageNet)
+        ]
     )
 
     train_classes = dict(
@@ -389,41 +245,6 @@ def load_training_image_data_by_case(
         test_classes,
     )
 
-
-def setup_resnet_model(seed):
-    # # Defines transformations to apply on images
-    processing_transforms = transforms.Compose(
-        [
-            transforms.Resize((224, 224)),  # ResNet expects 224x224 images
-            transforms.ToTensor(),  # Converts the image to a PyTorch tensor, which also scales the pixel values to the range [0, 1]
-            transforms.Normalize(
-                mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-            ),  # Normalizes the image tensor using the mean and standard deviation values that were used when training the ResNet model (usually on ImageNet)
-        ]
-    )
-    torch.manual_seed(seed)
-    model = torchmodels.resnet50(weights=torchmodels.ResNet50_Weights.DEFAULT)
-    model.eval()
-    return model, processing_transforms
-
-
-def setup_VGG16_model(seed):
-    # # Defines transformations to apply on images
-    processing_transforms = transforms.Compose(
-        [
-            transforms.Resize((224, 224)),  # ResNet expects 224x224 images
-            transforms.ToTensor(),  # Converts the image to a PyTorch tensor, which also scales the pixel values to the range [0, 1]
-            transforms.Normalize(
-                mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-            ),  # Normalizes the image tensor using the mean and standard deviation values that were used when training the ResNet model (usually on ImageNet)
-        ]
-    )
-    torch.manual_seed(seed)
-    model = torchmodels.vgg16(weights=torchmodels.VGG16_Weights.DEFAULT)
-    model.eval()
-    return model, processing_transforms
-
-
 def get_size_of_dataset(directory, extension):
     return len([path for path in Path(directory).rglob(f"*.{extension}")])
 
@@ -435,7 +256,6 @@ def get_annotation_classes(tumor_type):
         for name in os.listdir(image_directory)
         if name not in [".DS_Store", "__MACOSX"]
     ]
-
 
 def check_for_unopenable_files(tumor_type, norm = False):
     if norm:
@@ -533,6 +353,9 @@ def find_cases(image_directory):
     }
     return case_dict
 
+def compute_mean_std_per_channel(full_data_loader):
+    pass
+
 
 def count_dict_tensor(count_dict: dict):
     """
@@ -564,54 +387,5 @@ if __name__ == "__main__":
             continue
         print(tumor_type)
         check_for_unopenable_files(tumor_type)
-        split_all_images(tumor_type)
 
-        # for annotation in os.listdir(image_directory):
-        #     if annotation in [".DS_Store", "__MACOSX"]:
-        #         continue
-        #     for image_path in os.listdir(os.path.join(image_directory,annotation)):
-        #         image_full_path = (os.path.join(image_directory,annotation,image_path))
-        #         if not image_full_path.endswith('.jpg') and not image_full_path.endswith('.sh'):
-        #             print(image_full_path)
-        #             tile_number = image_full_path.split('_')[-1]
-        #             image = image_full_path.split('.')[1]
-        #             print(f"{image}_tile_{tile_number}.jpg")
-        #             os.rename(image_full_path,f"./{image}_tile_{tile_number}.jpg")
-    # load_training_image_data(100, tumor_type, normalized=False)
-    # load_training_image_data_by_case(100, tumor_type, normalized=False)
-    # cases = {k:len(v) for k,v in find_cases(image_directory).items()}
 
-    # Image.open(r'images\DDC_UC_1/images/undiff\AS15041526_227753du.jpg')
-    # DEVICE = utils.load_device(seed)
-    # size_of_image_dataset = len([path for path in Path(f"./images/{tumor_type}/images").rglob('*.jpg')])
-    # size_of_feature_dataset = len([path for path in Path(f"./features/{tumor_type}").rglob('*.npz')])
-    # model = setup_resnet_model(seed).to(DEVICE)
-    # image_loader,image_filepaths,image_labels = load_data(1,tumor_type,seed,size_of_image_dataset)
-    # feature_loader,feature_filepaths,feature_labels = load_feature_data(1,tumor_type,seed,size_of_image_dataset)
-    # image_iterator = iter(image_loader)
-    # feature_iterator = iter(feature_loader)
-    # index = 0
-    # total_error = 0
-    # while True:
-    #     if index == size_of_image_dataset:
-    #         break
-    #     with torch.no_grad():
-    #         images = next(image_iterator)[0]
-    #         saved_features = next(feature_iterator)[0]
-    #         images = images.to(DEVICE)
-    #         features = model(images)
-
-    #         x = saved_features
-    #         y = features.cpu()
-    #         # print('y:',image_filepaths[index],y[0].shape)
-    #         # print('x:',feature_filepaths[index],x[0].shape)
-    #         print(index, torch.linalg.vector_norm(x[0]-y[0]))
-    #         total_error += torch.linalg.vector_norm(x[0]-y[0])
-    #         # for i in range(len(x[0])):
-    #         #     print(x[0][i].item(),y[0][i].item())
-    #     index += 1
-    # print(total_error)
-    # print(image_labels==feature_labels)
-
-    # check_for_unopenable_files(image_directory = f"./images/{tumor_type}/images",tumor_type=tumor_type)
-    # x = Image.open(f"./images/DDC_UC_1/images/undiff/AS15041526_227753du.jpg")

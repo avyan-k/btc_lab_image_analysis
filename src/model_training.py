@@ -207,9 +207,9 @@ def plot_losses(losses, number_of_epochs, path):
     plt.savefig(os.path.join(path, "losses.png"))
 
 
-def test(cnn, test_loader, test_count):
+def test(model, test_loader, test_count):
     testing_accuracy_sum = 0
-    cnn = cnn.to(DEVICE)
+    model = model.to(DEVICE)
     accuracy = torchmetrics.Accuracy(
         task="multiclass", num_classes=len(test_count.keys()), average="weighted"
     ).to(DEVICE)
@@ -217,7 +217,7 @@ def test(cnn, test_loader, test_count):
         with torch.no_grad():
             X_test = X_test.to(DEVICE)
             y_test = y_test.to(DEVICE)
-            test_predictions = cnn(X_test)
+            test_predictions = model(X_test)
             testing_accuracy_sum += accuracy(test_predictions, y_test).cpu()
 
     test_accuracy = testing_accuracy_sum / len(test_loader)
@@ -233,8 +233,8 @@ if __name__ == "__main__":
     batch_size = 300
 
     _, transforms = ld.setup_resnet_model(seed)
-    first_tumor_type = True  # only print summary for first tumor_type
-    for tumor_type in os.listdir("./images"):
+
+    for idx,tumor_type in enumerate(os.listdir("./images")):
         print(tumor_type)
         if tumor_type in [".DS_Store", "__MACOSX"]:
             continue
@@ -244,18 +244,12 @@ if __name__ == "__main__":
             transforms=transforms,
             normalized=True,
         )
-        # loaders, count_dict = ld.load_training_feature_data(batch_size=50,model_type="ResNet",tumor_type=tumor_type)
         train_loader, valid_loader, test_loader = loaders
         train_count, valid_count, test_count = count_dict
 
-        #   feature_classifier = Tumor_Classifier(layers=5, neurons_per_layer=64, dropout=0, input_neurons=1000, classes=len(train_count.keys()))
-        #   if first_tumor_type:
-        #     first_tumor_type = False
-        #     summary(feature_classifier,(1, 1000 ,1))
 
         resnet_classifier = md.ResNet_Tumor(classes=len(train_count.keys()))
-        if first_tumor_type:
-            first_tumor_type = False
+        if idx == 0:
             summary(resnet_classifier, input_size=(batch_size, 3, 224, 224))
         train_model(
             resnet_classifier,
