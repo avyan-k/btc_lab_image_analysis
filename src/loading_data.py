@@ -1,4 +1,5 @@
 import pickle
+import random
 import numpy as np
 import os
 from pathlib import Path
@@ -56,11 +57,10 @@ class BalancedTumorImageData(datasets.ImageFolder):
         self.k = k
         self.balanced_indices = self._get_balanced_indices()
     def _get_balanced_indices(self):
-        print(self.classes)
         balanced_class_indices = []
         for class_label in range(len(self.classes)):
-            all_indices = np.where(np.array(self.targets) == class_label)[0] #find all instance of class, 0 being success
-            balanced_class_indices.extend(list(all_indices[:min(len(all_indices)-1,self.k)]))
+            all_indices = list(np.where(np.array(self.targets) == class_label)[0]) #find all instance of class, 0 being success
+            balanced_class_indices.extend(random.sample(all_indices,min(len(all_indices)-1,self.k)))
         return balanced_class_indices
     
     def __getitem__(self, idx):
@@ -70,7 +70,8 @@ class BalancedTumorImageData(datasets.ImageFolder):
     def __len__(self):
         return len(self.balanced_indices)
 
-def load_training_image_data(batch_size,samples_per_class, tumor_type, normalized=False):
+def load_training_image_data(batch_size,samples_per_class, tumor_type,seed, normalized=False):
+    utils.set_seed(seed)
     image_directory = f"./images/{tumor_type}/images"
     if normalized:
         image_directory = f"./images/{tumor_type}/normalized_images"
@@ -80,13 +81,13 @@ def load_training_image_data(batch_size,samples_per_class, tumor_type, normalize
     # )
     # get full data set
     
-    pickle_path = f"./pickle/mean_std_{tumor_type}_{samples_per_class}_dataset.pkl"
+    pickle_path = f"./pickle/mean_std/{tumor_type}/k={k}_seed={seed}.pkl"  
     try:
         with open(pickle_path, "rb") as f:
             means,stds = pickle.load(f)
     except (EOFError,FileNotFoundError): #if the file does not exist, load dataset without transforming and compute mean and stf
         dataset = BalancedTumorImageData(image_directory,k=samples_per_class, transform=transforms.ToTensor())
-        means,stds = compute_and_save_mean_std_per_channel(dataset=dataset,tumor_type=tumor_type,k=samples_per_class)
+        means,stds = compute_and_save_mean_std_per_channel(dataset=dataset,tumor_type=tumor_type,k=samples_per_class,seed=seed)
 
     processing_transforms = transforms.Compose(
         [
@@ -395,7 +396,7 @@ def find_cases(image_directory):
     }
     return case_dict
 
-def compute_and_save_mean_std_per_channel(dataset,tumor_type,k=-1):
+def compute_and_save_mean_std_per_channel(dataset,tumor_type,k=-1,seed=99):
     device = utils.load_device()
     if k==-1:
         k = len(dataset)
@@ -409,8 +410,10 @@ def compute_and_save_mean_std_per_channel(dataset,tumor_type,k=-1):
             std[i] += images[:,i,:,:].std()
     mean.div_(len(loader)).cpu()
     std.div_(len(loader)).cpu()
-    pickle_path = f"./pickle/mean_std_{tumor_type}_{k}_dataset.pkl"    
-    with open(pickle_path, "wb") as f:
+    pickle_path = f"./pickle/mean_std/{tumor_type}/"  
+    Path(pickle_path).mkdir(parents=True,exist_ok=True)
+    pickle_file = os.path.join(pickle_path,f"k={k}_seed={seed}.pkl")
+    with open(pickle_file, "wb") as f:
             pickle.dump(obj=(mean,std), file=f, protocol=pickle.HIGHEST_PROTOCOL)
     return mean,std
 
@@ -445,10 +448,12 @@ if __name__ == "__main__":
             continue
         print(tumor_type)
         image_directory = f"./images/{tumor_type}/images"
-        
+
+
+
         start_time = time.time()
-        load_training_image_data(batch_size=100,samples_per_class=10000,tumor_type=tumor_type)
-        print(f"--- {(time.time() - start_time)} seconds to load {k} points---")
+        load_training_image_data(batch_size=100,samples_per_class=10000,tumor_type=tumor_type,seed=seed)
+        print(f"--- {(time.time() - start_time)} seconds ---")
 
         # check_for_unopenable_files(tumor_type)
 
