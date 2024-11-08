@@ -1,6 +1,6 @@
-import pickle
 import random
 import numpy as np
+import json
 import os
 from pathlib import Path
 import time
@@ -48,6 +48,7 @@ class TumorImageDataset(datasets.ImageFolder):
             transform=transform,
             is_valid_file=lambda x: get_case(os.path.basename(x)) in cases,
         )
+
 class BalancedTumorImageData(datasets.ImageFolder):
     def __init__(self, datapath: str, k:int,transform=None,target_transform=None):
         '''
@@ -56,22 +57,19 @@ class BalancedTumorImageData(datasets.ImageFolder):
         super().__init__(root=datapath, transform=transform, target_transform=target_transform)
         self.k = k
         self.balanced_indices = self._get_balanced_indices()
+        samples_array = np.array(self.samples)
+        self.samples = samples_array[self.balanced_indices]
+        self.targets = [int(s[1]) for s in self.samples]
     def _get_balanced_indices(self):
         balanced_class_indices = []
         for class_label in range(len(self.classes)):
             all_indices = list(np.where(np.array(self.targets) == class_label)[0]) #find all instance of class, 0 being success
             balanced_class_indices.extend(random.sample(all_indices,min(len(all_indices)-1,self.k)))
+        
         return balanced_class_indices
-    
-    def __getitem__(self, idx):
-        balanced_idx = self.balanced_indices[idx]
-        return super().__getitem__(balanced_idx)
 
-    def __len__(self):
-        return len(self.balanced_indices)
 
 def load_training_image_data(batch_size,samples_per_class, tumor_type,seed, normalized=False):
-    utils.set_seed(seed)
     image_directory = f"./images/{tumor_type}/images"
     if normalized:
         image_directory = f"./images/{tumor_type}/normalized_images"
@@ -81,14 +79,17 @@ def load_training_image_data(batch_size,samples_per_class, tumor_type,seed, norm
     # )
     # get full data set
     
-    pickle_path = f"./pickle/mean_std/{tumor_type}/k={k}_seed={seed}.pkl"  
+    mean_std_path = f"./results/training/models/{tumor_type}-k={samples_per_class}-seed={seed}.txt"  
     try:
-        with open(pickle_path, "rb") as f:
-            means,stds = pickle.load(f)
+        with open(mean_std_path, "r") as f:
+            means = [float(mean) for mean in f.readline().strip().split()]
+            stds = [float(std) for std in f.readline().strip().split()]
     except (EOFError,FileNotFoundError): #if the file does not exist, load dataset without transforming and compute mean and stf
         dataset = BalancedTumorImageData(image_directory,k=samples_per_class, transform=transforms.ToTensor())
-        means,stds = compute_and_save_mean_std_per_channel(dataset=dataset,tumor_type=tumor_type,k=samples_per_class,seed=seed)
+        means,stds = compute_and_save_mean_std_per_channel(dataset=dataset,tumor_type=tumor_type,seed=seed,k=samples_per_class)
 
+    print(f"Dataset mean for RGB channels: {means}")
+    print(f"Dataset standard deviation for RGB channels: {stds}")
     processing_transforms = transforms.Compose(
         [
             transforms.Resize((224, 224)),  # ResNet expects 224x224 images
@@ -110,16 +111,6 @@ def load_training_image_data(batch_size,samples_per_class, tumor_type,seed, norm
             int(train_size * 0.1),
             train_size - int(train_size * 0.8) - 2 * int(train_size * 0.1),
         ],
-    )
-
-    processing_transforms = transforms.Compose(
-        [
-            transforms.Resize((224, 224)),  # ResNet expects 224x224 images
-            transforms.ToTensor(),  # Converts the image to a PyTorch tensor, which also scales the pixel values to the range [0, 1]
-            transforms.Normalize(
-                mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-            ),  # Normalizes the image tensor using the mean and standard deviation values that were used when training the ResNet model (usually on ImageNet)
-        ]
     )
 
     train_classes = dict(
@@ -396,26 +387,31 @@ def find_cases(image_directory):
     }
     return case_dict
 
-def compute_and_save_mean_std_per_channel(dataset,tumor_type,k=-1,seed=99):
-    device = utils.load_device()
+def compute_and_save_mean_std_per_channel(dataset,tumor_type,seed,k=-1):
+    device = utils.load_device(seed)
     if k==-1:
         k = len(dataset)
-    loader = DataLoader(dataset, batch_size=200, num_workers=get_allowed_forks(), shuffle=False)
-    mean = torch.zeros(3).to(device)
-    std = torch.zeros(3).to(device)
+    if str(device) == "cpu": #define smaller batchsize if no graphics card
+        batch_size = 10
+    else:
+        batch_size = 200
+    loader = DataLoader(dataset, batch_size=batch_size, num_workers=get_allowed_forks(), shuffle=False)
+    means = torch.zeros(3).to(device)
+    stds = torch.zeros(3).to(device)
     for images, _ in tqdm(loader):
         images = images.to(device)
         for i in range(3):
-            mean[i] += images[:,i,:,:].mean()
-            std[i] += images[:,i,:,:].std()
-    mean.div_(len(loader)).cpu()
-    std.div_(len(loader)).cpu()
-    pickle_path = f"./pickle/mean_std/{tumor_type}/"  
-    Path(pickle_path).mkdir(parents=True,exist_ok=True)
-    pickle_file = os.path.join(pickle_path,f"k={k}_seed={seed}.pkl")
-    with open(pickle_file, "wb") as f:
-            pickle.dump(obj=(mean,std), file=f, protocol=pickle.HIGHEST_PROTOCOL)
-    return mean,std
+            means[i] += images[:,i,:,:].mean()
+            stds[i] += images[:,i,:,:].std()
+    means.div_(len(loader)).cpu()
+    stds.div_(len(loader)).cpu()
+    mean_std_path = "./results/training/models/"  
+    Path(mean_std_path).mkdir(parents=True,exist_ok=True)
+    file = os.path.join(mean_std_path,f"{tumor_type}-k={k}-seed={seed}.txt")
+    with open(file, "w") as f:
+            f.write(' '.join([str(float(mean)) for mean in means])+'\n')
+            f.write(' '.join([str(float(mean)) for mean in means]))
+    return means,stds
 
 
 def count_dict_tensor(count_dict: dict):
@@ -440,6 +436,7 @@ if __name__ == "__main__":
     tumor_type = "DDC_UC_1"
     image_directory = f"./images/{tumor_type}/images"
     seed = 99
+    utils.set_seed(seed)
     k = 10000
     # print(*list(os.listdir('./images/DDC_UC_1/normalized_images/undiff')),sep='\n')
     # x = imread('./images/DDC_UC_1/normalized_images/undiff/AS19060903_275284.jpg_tile_3')
@@ -449,12 +446,19 @@ if __name__ == "__main__":
         print(tumor_type)
         image_directory = f"./images/{tumor_type}/images"
 
-
+        # for annotation in os.listdir(image_directory):
+        #     if annotation in [".DS_Store", "__MACOSX"]:
+        #         continue
+        #     for image_path in tqdm(os.listdir(os.path.join(image_directory,annotation))):
+        #         image_full_path = (os.path.join(image_directory,annotation,image_path))
+        #         if tumor_type[0].lower()+annotation[0] in image_path:
+        #             print(image_full_path)
+        #             print(os.path.splitext(image_full_path)[0][:-2]+os.path.splitext(image_full_path)[1])
+        #             os.rename(image_full_path,os.path.splitext(image_full_path)[0][:-2]+os.path.splitext(image_full_path)[1])
 
         start_time = time.time()
-        load_training_image_data(batch_size=100,samples_per_class=10000,tumor_type=tumor_type,seed=seed)
+        load_training_image_data(batch_size=100,samples_per_class=10000,seed=seed,tumor_type=tumor_type)
         print(f"--- {(time.time() - start_time)} seconds ---")
 
         # check_for_unopenable_files(tumor_type)
-
 

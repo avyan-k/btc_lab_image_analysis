@@ -68,16 +68,17 @@ if __name__ == "__main__":
     print(torch.__version__)
     seed = 99
     utils.set_seed(seed)
+    samples_per_case = 10000
 
     for tumor_type in os.listdir("./images"):
         print(tumor_type)
         if tumor_type in [".DS_Store", "__MACOSX", "SIL"]:
             continue
         norm_weight_path = (
-            f"./results/training/models/ResNet_Tumor/{tumor_type}-Normalized.pt"
+            f"./results/training/models/ResNet_Tumor/{tumor_type}-{samples_per_case}-Normalized.pt"
         )
         unnorm_weight_path = (
-            f"./results/training/models/ResNet_Tumor/{tumor_type}-Unnormalized.pt"
+            f"./results/training/models/ResNet_Tumor/{tumor_type}-{samples_per_case}-Unnormalized.pt"
         )
         for weight_path in [norm_weight_path, unnorm_weight_path]:
             if not os.path.isfile(weight_path):

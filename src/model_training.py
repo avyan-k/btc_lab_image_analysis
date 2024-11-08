@@ -24,10 +24,11 @@ def train_model(
     valid_loader,
     train_count,
     valid_count,
-    num_epochs=200,
-    number_of_validations=3,
-    learning_rate=0.001,
-    weight_decay=0.001,
+    num_epochs:int=200,
+    number_of_validations:int=3,
+    samples_per_cases:int = -1,
+    learning_rate:float=0.001,
+    weight_decay:float=0.001,
 ):
     losses = np.empty(num_epochs)
     start = time.time()
@@ -35,7 +36,7 @@ def train_model(
         len(train_loader) // number_of_validations, 3
     )  # validate at least every 3 iterations
 
-    model_path = f"./results/training/models/{str(type(model).__name__)}/{tumor_type}"
+    model_path = f"./results/training/models/{str(type(model).__name__)}/{samples_per_cases}/{tumor_type}"
     Path(model_path).mkdir(parents=True, exist_ok=True)
     loss_path = os.path.join(
         model_path, f"losses_{str(type(model).__name__)}_{tumor_type}.txt"
@@ -44,7 +45,7 @@ def train_model(
 
     model = model.to(DEVICE)
     # Initializes the Adam optimizer with the model's parameters
-    optimizer = optim.Adam(
+    optimizer = optim.AdamW(
         model.parameters(), lr=learning_rate, weight_decay=weight_decay
     )
     # Define weighted loss functions and accuracy metrics
@@ -148,7 +149,7 @@ def valid_model(
         if val_accuracy > 0.95:
             torch.save(
                 model.state_dict(),
-                os.path.join(model_directory, f"{epoch}-{iteration}-{val_accuracy}.pt"),
+                os.path.join(model_directory, f"ep={epoch}-iter={iteration}-seed={torch.seed()}-acc={val_accuracy}.pt"),
             )
             if len([name for name in os.listdir(model_directory)]) > 5:
                 return True
@@ -158,7 +159,7 @@ def valid_model(
 def log_model(model, train_count, valid_count, epochs, input_shape, filepath):
     with open(filepath, "w", encoding="utf-8") as f:
         f.write(
-            f"Attempting {epochs} epochs on date of {utils.get_time()} with model:\n"
+            f"Attempting {epochs} epochs on date of {utils.get_time()} on seed {torch.seed()} with model:\n"
         )
         model_stats = summary(model, input_size=input_shape, verbose=0)
         f.write(f"Model Summary:{str(model_stats)}\n")
@@ -229,6 +230,7 @@ def test(model, test_loader, test_count):
 if __name__ == "__main__":
     utils.print_cuda_memory()
     seed = 99
+    utils.set_seed(seed)
     DEVICE = utils.load_device(seed)
     number_of_epochs = 20
     batch_size = 300
@@ -242,6 +244,7 @@ if __name__ == "__main__":
             batch_size=batch_size,
             samples_per_class=10000,
             tumor_type=tumor_type,
+            seed=seed,
             normalized=False,
         )
         train_loader, valid_loader, test_loader = loaders
@@ -265,7 +268,7 @@ if __name__ == "__main__":
         #     weight_decay=0.001,
         # )
         test_dict = {}
-        for filename in os.listdir(f"results/training/models/ResNet_Tumor/{tumor_type}"):
+        for filename in os.listdir(f"results/training/models/ResNet_Tumor/all/{tumor_type}"):
             model_path = os.path.join(f"results/training/models/ResNet_Tumor/{tumor_type}", filename)
             print(model_path)
             if os.path.isfile(model_path) and model_path.endswith('.pt'):

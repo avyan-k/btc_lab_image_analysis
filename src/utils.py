@@ -19,7 +19,7 @@ def load_device(seed: int = 99):
     # revert to the default (CPU)
     else:
         device = torch.device("cpu")
-    print(f"Loading device as {device}")
+    print(f"Loading device as {device} with seed {seed}")
     return device
 
 
