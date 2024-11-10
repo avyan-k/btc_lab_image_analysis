@@ -246,8 +246,8 @@ if __name__ == "__main__":
     seed = 99
     utils.set_seed(seed)
     DEVICE = utils.load_device(seed)
-    number_of_epochs = 10
-    k = 100
+    number_of_epochs = 80
+    k = 10000
     batch_size = 128
 
 
