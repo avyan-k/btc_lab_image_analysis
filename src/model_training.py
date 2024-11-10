@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mtick
 import torch.optim as optim
 from tqdm import tqdm
 from torcheval.metrics import MulticlassAUROC
@@ -170,9 +171,9 @@ def log_model(model, train_count, valid_count, epochs, input_shape, filepath):
 
 def log_training_results(filepath, losses, accuracies,epoch, start, current_loss, current_accuracy, val_loss, val_accuracy):
     losses[epoch][0] = float(current_loss.cpu())
-    losses[epoch][1] = float(current_accuracy.cpu())
-    accuracies[epoch][0] = float(val_loss.cpu())
-    accuracies[epoch][1] = float(val_accuracy.cpu())
+    losses[epoch][1] = float(val_loss.cpu())
+    accuracies[epoch][0] = float(val_accuracy.cpu())
+    accuracies[epoch][1] = float(current_accuracy.cpu())
 
     # print(f"\n\nloss: {training_loss.item()} epoch: {epoch}")
     # print("It has now been "+ time.strftime("%Mm%Ss", time.gmtime(time.time() - start))  +"  since the beginning of the program")
@@ -212,9 +213,12 @@ def plot_losses(losses, number_of_epochs, path):
 
 
 def plot_accuracies(accuracies, number_of_epochs, path):
+    plt.figure()
     xh = np.arange(0, number_of_epochs)
     plt.plot(xh, accuracies[:,0], color="b", marker=",", label="Training Accuracy")
     plt.plot(xh, accuracies[:,1], color="r", marker=",", label="Test Accuracy")
+    ax = plt.gca()
+    ax.yaxis.set_major_formatter(mtick.PercentFormatter(xmax=1.0))
     plt.xlabel("Epochs Traversed")
     plt.ylabel("Accuracies")
     plt.grid()
@@ -246,8 +250,8 @@ if __name__ == "__main__":
     seed = 99
     utils.set_seed(seed)
     DEVICE = utils.load_device(seed)
-    number_of_epochs = 80
-    k = 10000
+    number_of_epochs = 10
+    k = 100
     batch_size = 128
 
 
