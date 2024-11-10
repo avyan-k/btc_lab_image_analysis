@@ -2,6 +2,8 @@ images
 features
 results/Cases
 results/Clusters
+results/training/**/*.png
+results/training/**/*.txt
 **/torchscript_models
 *.pt
 __pycache__/

@@ -58,7 +58,7 @@ class BalancedTumorImageData(datasets.ImageFolder):
         self.k = k
         self.balanced_indices = self._get_balanced_indices()
         samples_array = np.array(self.samples)
-        self.samples = samples_array[self.balanced_indices]
+        self.samples = [(str(sample),int(target)) for sample,target in samples_array[self.balanced_indices]]
         self.targets = [int(s[1]) for s in self.samples]
     def _get_balanced_indices(self):
         balanced_class_indices = []
@@ -69,15 +69,13 @@ class BalancedTumorImageData(datasets.ImageFolder):
         return balanced_class_indices
 
 
-def load_training_image_data(batch_size,samples_per_class, tumor_type,seed, normalized=False):
+def load_training_image_data(batch_size, tumor_type,seed, samples_per_class = -1, normalized=False, validation = False):
     image_directory = f"./images/{tumor_type}/images"
     if normalized:
         image_directory = f"./images/{tumor_type}/normalized_images"
     print(f"\nLoading images from: {image_directory}")
-    # transforms = v2.Compose(
-    #     [v2.RandomAffine(degrees=15, translate=(0.15, 0.15)), transforms]
-    # )
-    # get full data set
+    if samples_per_class == -1:
+        samples_per_class = "all"
     
     mean_std_path = f"./results/training/models/{tumor_type}-k={samples_per_class}-seed={seed}.txt"  
     try:
@@ -85,8 +83,13 @@ def load_training_image_data(batch_size,samples_per_class, tumor_type,seed, norm
             means = [float(mean) for mean in f.readline().strip().split()]
             stds = [float(std) for std in f.readline().strip().split()]
     except (EOFError,FileNotFoundError): #if the file does not exist, load dataset without transforming and compute mean and stf
-        dataset = BalancedTumorImageData(image_directory,k=samples_per_class, transform=transforms.ToTensor())
-        means,stds = compute_and_save_mean_std_per_channel(dataset=dataset,tumor_type=tumor_type,seed=seed,k=samples_per_class)
+        if samples_per_class == "all":
+            dataset = datasets.ImageFolder(root=image_directory,transform=transforms.ToTensor())
+            k = len(dataset)
+        else:
+            dataset = BalancedTumorImageData(image_directory,k=samples_per_class, transform=transforms.ToTensor())
+            k = samples_per_class
+        means,stds = compute_and_save_mean_std_per_channel(dataset=dataset,path = mean_std_path,seed=seed,k=k)
 
     print(f"Dataset mean for RGB channels: {means}")
     print(f"Dataset standard deviation for RGB channels: {stds}")
@@ -99,19 +102,32 @@ def load_training_image_data(batch_size,samples_per_class, tumor_type,seed, norm
             ),  # Normalizes the image tensor using  mean and standard deviation 
         ]
     )
-    full_dataset = BalancedTumorImageData(image_directory,k=samples_per_class, transform=processing_transforms)
+    if samples_per_class == "all":
+        full_dataset = datasets.ImageFolder(root=image_directory,transform=processing_transforms)
+    else:
+        full_dataset = BalancedTumorImageData(image_directory,k=samples_per_class, transform=processing_transforms)
     train_size = len(full_dataset)
-
     # Split the datasets into training, validation, and testing sets
-    train_dataset, valid_dataset, test_dataset, _ = random_split(
-        full_dataset,
-        [
-            int(train_size * 0.8),
-            int(train_size * 0.1),
-            int(train_size * 0.1),
-            train_size - int(train_size * 0.8) - 2 * int(train_size * 0.1),
-        ],
-    )
+    if validation:
+        train_dataset, valid_dataset, test_dataset, _ = random_split(
+            full_dataset,
+            [
+                int(train_size * 0.8),
+                int(train_size * 0.1),
+                int(train_size * 0.1),
+                train_size - int(train_size * 0.8) -  int(train_size * 0.1) -  int(train_size * 0.1)
+            ],
+        )
+    else:
+        train_dataset, test_dataset, _ = random_split(
+            full_dataset,
+            [
+                int(train_size * 0.8),
+                int(train_size * 0.1),
+                train_size - int(train_size * 0.8) -  int(train_size * 0.1),
+            ],
+        )
+        valid_dataset = None
 
     train_classes = dict(
         sorted(
@@ -120,13 +136,7 @@ def load_training_image_data(batch_size,samples_per_class, tumor_type,seed, norm
             ).items()
         )
     )  # counter return a dictionnary of the counts, sort and wrap with dict to get dict sorted by key
-    valid_classes = dict(
-        sorted(
-            Counter(
-                [full_dataset.targets[i] for i in valid_dataset.indices]
-            ).items()
-        )
-    )
+
     test_classes = dict(
         sorted(
             Counter(
@@ -141,12 +151,7 @@ def load_training_image_data(batch_size,samples_per_class, tumor_type,seed, norm
         shuffle=True,
         num_workers=get_allowed_forks(),
     )
-    valid_loader = DataLoader(
-        valid_dataset,
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=get_allowed_forks(),
-    )
+
     test_loader = DataLoader(
         test_dataset,
         batch_size=batch_size,
@@ -157,18 +162,38 @@ def load_training_image_data(batch_size,samples_per_class, tumor_type,seed, norm
     print(
         f"Training set size: {len(train_dataset)}, Class Proportions: {({full_dataset.classes[k]:v for k,v in train_classes.items()})}"
     )
-    print(
-        f"Validation set size: {len(valid_dataset)}, Class Proportions: {({full_dataset.classes[k]:v for k,v in valid_classes.items()})}"
-    )
+
     print(
         f"Test set size: {len(test_dataset)}, Class Proportions: {({full_dataset.classes[k]:v for k,v in test_classes.items()})}"
     )
 
-    return (train_loader, valid_loader, test_loader), (
-        train_classes,
-        valid_classes,
-        test_classes,
-    )
+    if valid_dataset is not None:
+        valid_classes = dict(
+            sorted(
+                Counter(
+                    [full_dataset.targets[i] for i in valid_dataset.indices]
+                ).items()
+            )
+        )
+        valid_loader = DataLoader(
+            valid_dataset,
+            batch_size=batch_size,
+            shuffle=True,
+            num_workers=get_allowed_forks(),
+        )
+        print(
+            f"Validation set size: {len(valid_dataset)}, Class Proportions: {({full_dataset.classes[k]:v for k,v in valid_classes.items()})}"
+        )
+        return (train_loader, valid_loader, test_loader), (
+            train_classes,
+            valid_classes,
+            test_classes,
+        )
+    else:
+        return (train_loader, test_loader), (
+            train_classes,
+            test_classes,
+        )
 
 
 def load_training_image_data_by_case(
@@ -387,7 +412,7 @@ def find_cases(image_directory):
     }
     return case_dict
 
-def compute_and_save_mean_std_per_channel(dataset,tumor_type,seed,k=-1):
+def compute_and_save_mean_std_per_channel(dataset,path,seed,k=-1):
     device = utils.load_device(seed)
     if k==-1:
         k = len(dataset)
@@ -407,8 +432,7 @@ def compute_and_save_mean_std_per_channel(dataset,tumor_type,seed,k=-1):
     stds.div_(len(loader)).cpu()
     mean_std_path = "./results/training/models/"  
     Path(mean_std_path).mkdir(parents=True,exist_ok=True)
-    file = os.path.join(mean_std_path,f"{tumor_type}-k={k}-seed={seed}.txt")
-    with open(file, "w") as f:
+    with open(path, "w") as f:
             f.write(' '.join([str(float(mean)) for mean in means])+'\n')
             f.write(' '.join([str(float(mean)) for mean in means]))
     return means,stds
@@ -441,9 +465,9 @@ if __name__ == "__main__":
     # print(*list(os.listdir('./images/DDC_UC_1/normalized_images/undiff')),sep='\n')
     # x = imread('./images/DDC_UC_1/normalized_images/undiff/AS19060903_275284.jpg_tile_3')
     for tumor_type in os.listdir('images'):
-        if tumor_type in [".DS_Store", "__MACOSX"]:
-            continue
         print(tumor_type)
+        if tumor_type not in ["DDC_UC_1"]:
+            continue
         image_directory = f"./images/{tumor_type}/images"
 
         # for annotation in os.listdir(image_directory):
@@ -457,7 +481,7 @@ if __name__ == "__main__":
         #             os.rename(image_full_path,os.path.splitext(image_full_path)[0][:-2]+os.path.splitext(image_full_path)[1])
 
         start_time = time.time()
-        load_training_image_data(batch_size=100,samples_per_class=10000,seed=seed,tumor_type=tumor_type)
+        load_training_image_data(batch_size=128,seed=seed,samples_per_class=k,tumor_type=tumor_type)
         print(f"--- {(time.time() - start_time)} seconds ---")
 
         # check_for_unopenable_files(tumor_type)
