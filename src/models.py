@@ -47,7 +47,7 @@ class ResNet_Tumor(nn.Module):
             )
         else:
             self.fc = feature_classifier
-        self.resnet = timm.create_model("resnet50", pretrained=False)
+        self.resnet = timm.create_model("resnet18", pretrained=False)
 
     def forward(self, x):
         x = self.resnet(x)
@@ -56,6 +56,7 @@ class ResNet_Tumor(nn.Module):
 
 
 if __name__ == "__main__":
+    model = ResNet_Tumor()
     utils.print_cuda_memory()
     seed = 99
     DEVICE = utils.load_device(seed)
