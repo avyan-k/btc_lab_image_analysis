@@ -20,6 +20,7 @@ import models as md
 def train_model(
     model,
     tumor_type,
+    seed,
     input_shape,
     train_loader,
     valid_loader,
@@ -40,7 +41,7 @@ def train_model(
     )  # validate at least every 3 iterations
 
     model_path = f"./results/training/models/{str(type(model).__name__)}/k={samples_per_class}/{tumor_type}"
-    Path(model_path).mkdir(parents=True, exist_ok=True)
+    os.makedirs(model_path,exist_ok=True)
     loss_path = os.path.join(
         model_path, f"losses_{str(type(model).__name__)}_{tumor_type}.txt"
     )
@@ -113,6 +114,10 @@ def train_model(
         )
     plot_losses(losses, num_epochs, model_path)
     plot_accuracies(accuracies, num_epochs, model_path)
+    torch.save(
+        model.state_dict(),
+        os.path.join(model_path, f"epochs={num_epochs}-lr={learning_rate}-seed={seed}.pt"),
+    )
     return losses, accuracies
 
 
@@ -216,14 +221,6 @@ def log_validation_results(filepath, epoch, iteration, loss, accuracy):
         # print(f"Validation loss = {loss} --- Validation accuracy = {accuracy}")
     return
 
-
-def to_see_model(path):
-    model = torch.load(path, map_location=DEVICE)
-    text_file = open(r"our_models/model1.txt", "w")
-    print(model, file=text_file)
-    text_file.close()
-
-
 def plot_losses(losses, number_of_epochs, path):
     xh = np.arange(0, number_of_epochs)
     plt.plot(xh, losses[:, 0], color="b", marker=",", label="Training Loss")
@@ -299,6 +296,7 @@ if __name__ == "__main__":
         losses, accuracies = train_model(
             resnet_classifier,
             tumor_type,
+            seed = seed,
             input_shape=(batch_size, 3, 224, 224),
             train_loader=train_loader,
             valid_loader=test_loader,
