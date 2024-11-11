@@ -1,14 +1,11 @@
 import random
 import numpy as np
-import json
 import os
 from pathlib import Path
-import time
 import torch
 from torchvision import datasets, transforms
 from torchvision.transforms import v2
-import torchvision.models as torchmodels
-from torch.utils.data import DataLoader, Subset, random_split
+from torch.utils.data import DataLoader, random_split
 from PIL import Image, UnidentifiedImageError
 from tqdm import tqdm
 from datetime import datetime
@@ -49,27 +46,37 @@ class TumorImageDataset(datasets.ImageFolder):
             is_valid_file=lambda x: get_case(os.path.basename(x)) in cases,
         )
 
+
 class BalancedTumorImageData(datasets.ImageFolder):
-    def __init__(self, datapath: str, k:int,transform=None,target_transform=None):
-        '''
+    def __init__(self, datapath: str, k: int, transform=None, target_transform=None):
+        """
         k represents the number to sample from each class
-        '''
-        super().__init__(root=datapath, transform=transform, target_transform=target_transform)
+        """
+        super().__init__(
+            root=datapath, transform=transform, target_transform=target_transform
+        )
         self.k = k
         self.balanced_indices = self._get_balanced_indices()
         samples_array = np.array(self.samples)
         self.samples = samples_array[self.balanced_indices]
         self.targets = [int(s[1]) for s in self.samples]
+
     def _get_balanced_indices(self):
         balanced_class_indices = []
         for class_label in range(len(self.classes)):
-            all_indices = list(np.where(np.array(self.targets) == class_label)[0]) #find all instance of class, 0 being success
-            balanced_class_indices.extend(random.sample(all_indices,min(len(all_indices)-1,self.k)))
-        
+            all_indices = list(
+                np.where(np.array(self.targets) == class_label)[0]
+            )  # find all instance of class, 0 being success
+            balanced_class_indices.extend(
+                random.sample(all_indices, min(len(all_indices) - 1, self.k))
+            )
+
         return balanced_class_indices
 
 
-def load_training_image_data(batch_size,samples_per_class, tumor_type,seed, normalized=False):
+def load_training_image_data(
+    batch_size, samples_per_class, tumor_type, seed, normalized=False
+):
     image_directory = f"./images/{tumor_type}/images"
     if normalized:
         image_directory = f"./images/{tumor_type}/normalized_images"
@@ -78,15 +85,24 @@ def load_training_image_data(batch_size,samples_per_class, tumor_type,seed, norm
     #     [v2.RandomAffine(degrees=15, translate=(0.15, 0.15)), transforms]
     # )
     # get full data set
-    
-    mean_std_path = f"./results/training/models/{tumor_type}-k={samples_per_class}-seed={seed}.txt"  
+
+    mean_std_path = (
+        f"./results/training/models/{tumor_type}-k={samples_per_class}-seed={seed}.txt"
+    )
     try:
         with open(mean_std_path, "r") as f:
             means = [float(mean) for mean in f.readline().strip().split()]
             stds = [float(std) for std in f.readline().strip().split()]
-    except (EOFError,FileNotFoundError): #if the file does not exist, load dataset without transforming and compute mean and stf
-        dataset = BalancedTumorImageData(image_directory,k=samples_per_class, transform=transforms.ToTensor())
-        means,stds = compute_and_save_mean_std_per_channel(dataset=dataset,tumor_type=tumor_type,seed=seed,k=samples_per_class)
+    except (
+        EOFError,
+        FileNotFoundError,
+    ):  # if the file does not exist, load dataset without transforming and compute mean and stf
+        dataset = BalancedTumorImageData(
+            image_directory, k=samples_per_class, transform=transforms.ToTensor()
+        )
+        means, stds = compute_and_save_mean_std_per_channel(
+            dataset=dataset, tumor_type=tumor_type, seed=seed, k=samples_per_class
+        )
 
     print(f"Dataset mean for RGB channels: {means}")
     print(f"Dataset standard deviation for RGB channels: {stds}")
@@ -96,10 +112,12 @@ def load_training_image_data(batch_size,samples_per_class, tumor_type,seed, norm
             transforms.ToTensor(),  # Converts the image to a PyTorch tensor, which also scales the pixel values to the range [0, 1]
             transforms.Normalize(
                 mean=means, std=stds
-            ),  # Normalizes the image tensor using  mean and standard deviation 
+            ),  # Normalizes the image tensor using  mean and standard deviation
         ]
     )
-    full_dataset = BalancedTumorImageData(image_directory,k=samples_per_class, transform=processing_transforms)
+    full_dataset = BalancedTumorImageData(
+        image_directory, k=samples_per_class, transform=processing_transforms
+    )
     train_size = len(full_dataset)
 
     # Split the datasets into training, validation, and testing sets
@@ -115,24 +133,16 @@ def load_training_image_data(batch_size,samples_per_class, tumor_type,seed, norm
 
     train_classes = dict(
         sorted(
-            Counter(
-                [full_dataset.targets[i] for i in train_dataset.indices]
-            ).items()
+            Counter([full_dataset.targets[i] for i in train_dataset.indices]).items()
         )
     )  # counter return a dictionnary of the counts, sort and wrap with dict to get dict sorted by key
     valid_classes = dict(
         sorted(
-            Counter(
-                [full_dataset.targets[i] for i in valid_dataset.indices]
-            ).items()
+            Counter([full_dataset.targets[i] for i in valid_dataset.indices]).items()
         )
     )
     test_classes = dict(
-        sorted(
-            Counter(
-                [full_dataset.targets[i] for i in test_dataset.indices]
-            ).items()
-        )
+        sorted(Counter([full_dataset.targets[i] for i in test_dataset.indices]).items())
     )
 
     train_loader = DataLoader(
@@ -279,6 +289,7 @@ def load_training_image_data_by_case(
         test_classes,
     )
 
+
 def get_size_of_dataset(directory, extension):
     return len([path for path in Path(directory).rglob(f"*.{extension}")])
 
@@ -291,7 +302,8 @@ def get_annotation_classes(tumor_type):
         if name not in [".DS_Store", "__MACOSX"]
     ]
 
-def check_for_unopenable_files(tumor_type, norm = False):
+
+def check_for_unopenable_files(tumor_type, norm=False):
     if norm:
         image_directory = f"./images/{tumor_type}/normalized_images"
     else:
@@ -309,10 +321,11 @@ def check_for_unopenable_files(tumor_type, norm = False):
             except UnidentifiedImageError:
                 f.write(str(image_path))
 
-def split_all_images(tumor_type,norm = False):
-    '''
+
+def split_all_images(tumor_type, norm=False):
+    """
     Splits all 512 x 512 image into 4 256 x 256 tiles, saves them and deletes original
-    '''
+    """
     if norm:
         image_directory = f"./images/{tumor_type}/normalized_images"
     else:
@@ -320,16 +333,28 @@ def split_all_images(tumor_type,norm = False):
     for annotation in os.listdir(image_directory):
         if annotation in [".DS_Store", "__MACOSX"]:
             continue
-        for image_path in tqdm(os.listdir(os.path.join(image_directory,annotation))):
-            if 'tile' in image_path:
+        for image_path in tqdm(os.listdir(os.path.join(image_directory, annotation))):
+            if "tile" in image_path:
                 continue
-            image_full_path = (os.path.join(image_directory,annotation,image_path))
+            image_full_path = os.path.join(image_directory, annotation, image_path)
             image = imread(image_full_path)
-            if image.shape == (512,512,3):
-                for idx,tile in enumerate([image[x:x+256,y:y+256] for x in range(0,512,256) for y in range (0,512,256)]):
+            if image.shape == (512, 512, 3):
+                for idx, tile in enumerate(
+                    [
+                        image[x : x + 256, y : y + 256]
+                        for x in range(0, 512, 256)
+                        for y in range(0, 512, 256)
+                    ]
+                ):
                     # print(os.path.splitext(image_full_path)[0]+f"_tile_{idx+1}"+os.path.splitext(image_full_path)[1])
-                    imwrite(os.path.splitext(image_full_path)[0]+f"_tile_{idx+1}"+os.path.splitext(image_full_path)[1],tile)
+                    imwrite(
+                        os.path.splitext(image_full_path)[0]
+                        + f"_tile_{idx+1}"
+                        + os.path.splitext(image_full_path)[1],
+                        tile,
+                    )
                 os.remove(image_full_path)
+
 
 def get_case_subsets(case_dict, intersection, max_size):
     train_subset = []
@@ -387,31 +412,34 @@ def find_cases(image_directory):
     }
     return case_dict
 
-def compute_and_save_mean_std_per_channel(dataset,tumor_type,seed,k=-1):
+
+def compute_and_save_mean_std_per_channel(dataset, tumor_type, seed, k=-1):
     device = utils.load_device(seed)
-    if k==-1:
+    if k == -1:
         k = len(dataset)
-    if str(device) == "cpu": #define smaller batchsize if no graphics card
+    if str(device) == "cpu":  # define smaller batchsize if no graphics card
         batch_size = 10
     else:
         batch_size = 200
-    loader = DataLoader(dataset, batch_size=batch_size, num_workers=get_allowed_forks(), shuffle=False)
+    loader = DataLoader(
+        dataset, batch_size=batch_size, num_workers=get_allowed_forks(), shuffle=False
+    )
     means = torch.zeros(3).to(device)
     stds = torch.zeros(3).to(device)
     for images, _ in tqdm(loader):
         images = images.to(device)
         for i in range(3):
-            means[i] += images[:,i,:,:].mean()
-            stds[i] += images[:,i,:,:].std()
+            means[i] += images[:, i, :, :].mean()
+            stds[i] += images[:, i, :, :].std()
     means.div_(len(loader)).cpu()
     stds.div_(len(loader)).cpu()
-    mean_std_path = "./results/training/models/"  
-    Path(mean_std_path).mkdir(parents=True,exist_ok=True)
-    file = os.path.join(mean_std_path,f"{tumor_type}-k={k}-seed={seed}.txt")
+    mean_std_path = "./results/training/models/"
+    os.makedirs(mean_std_path,exist_ok=True)
+    file = os.path.join(mean_std_path, f"{tumor_type}-k={k}-seed={seed}.txt")
     with open(file, "w") as f:
-            f.write(' '.join([str(float(mean)) for mean in means])+'\n')
-            f.write(' '.join([str(float(mean)) for mean in means]))
-    return means,stds
+        f.write(" ".join([str(float(mean)) for mean in means]) + "\n")
+        f.write(" ".join([str(float(mean)) for mean in means]))
+    return means, stds
 
 
 def count_dict_tensor(count_dict: dict):
@@ -440,25 +468,34 @@ if __name__ == "__main__":
     k = 10000
     # print(*list(os.listdir('./images/DDC_UC_1/normalized_images/undiff')),sep='\n')
     # x = imread('./images/DDC_UC_1/normalized_images/undiff/AS19060903_275284.jpg_tile_3')
-    for tumor_type in os.listdir('images'):
-        if tumor_type in [".DS_Store", "__MACOSX"]:
+    for tumor_type in os.listdir("images"):
+        if tumor_type not in ["DDC_UC_1"]:
             continue
         print(tumor_type)
         image_directory = f"./images/{tumor_type}/images"
 
-        # for annotation in os.listdir(image_directory):
-        #     if annotation in [".DS_Store", "__MACOSX"]:
-        #         continue
-        #     for image_path in tqdm(os.listdir(os.path.join(image_directory,annotation))):
-        #         image_full_path = (os.path.join(image_directory,annotation,image_path))
-        #         if tumor_type[0].lower()+annotation[0] in image_path:
-        #             print(image_full_path)
-        #             print(os.path.splitext(image_full_path)[0][:-2]+os.path.splitext(image_full_path)[1])
-        #             os.rename(image_full_path,os.path.splitext(image_full_path)[0][:-2]+os.path.splitext(image_full_path)[1])
+        for annotation in os.listdir(image_directory):
+            print(tumor_type[0].lower() + annotation[0])
+            if annotation in [".DS_Store", "__MACOSX"]:
+                continue
+            for image_path in tqdm(
+                os.listdir(os.path.join(image_directory, annotation))
+            ):
+                image_full_path = os.path.join(image_directory, annotation, image_path)
+                if tumor_type[0].lower() + annotation[0] in image_path:
+                    print(image_full_path)
+                    print(
+                        os.path.splitext(image_full_path)[0][:-2]
+                        + os.path.splitext(image_full_path)[1]
+                    )
+                    os.rename(
+                        image_full_path,
+                        os.path.splitext(image_full_path)[0][:-2]
+                        + os.path.splitext(image_full_path)[1],
+                    )
 
-        start_time = time.time()
-        load_training_image_data(batch_size=100,samples_per_class=10000,seed=seed,tumor_type=tumor_type)
-        print(f"--- {(time.time() - start_time)} seconds ---")
+        # start_time = time.time()
+        # load_training_image_data(batch_size=100,samples_per_class=10000,seed=seed,tumor_type=tumor_type)
+        # print(f"--- {(time.time() - start_time)} seconds ---")
 
         # check_for_unopenable_files(tumor_type)
-

@@ -7,6 +7,7 @@ import os
 from tqdm import tqdm
 import re
 
+
 def load_device(seed: int = 99):
     set_seed(seed)
     # if a macOs then use mps
@@ -84,5 +85,7 @@ def remove_image_label_abbreviations():
                 os.rename(path, newpath)
 
     return
+
+
 if __name__ == "__main__":
     load_device(0)
