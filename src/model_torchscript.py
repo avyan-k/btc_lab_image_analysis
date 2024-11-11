@@ -74,12 +74,8 @@ if __name__ == "__main__":
         print(tumor_type)
         if tumor_type in [".DS_Store", "__MACOSX", "SIL"]:
             continue
-        norm_weight_path = (
-            f"./results/training/models/ResNet_Tumor/{tumor_type}-{samples_per_case}-Normalized.pt"
-        )
-        unnorm_weight_path = (
-            f"./results/training/models/ResNet_Tumor/{tumor_type}-{samples_per_case}-Unnormalized.pt"
-        )
+        norm_weight_path = f"./results/training/models/ResNet_Tumor/{tumor_type}-{samples_per_case}-Normalized.pt"
+        unnorm_weight_path = f"./results/training/models/ResNet_Tumor/{tumor_type}-{samples_per_case}-Unnormalized.pt"
         for weight_path in [norm_weight_path, unnorm_weight_path]:
             if not os.path.isfile(weight_path):
                 raise FileNotFoundError(f"Cannot find weights {weight_path} to load")

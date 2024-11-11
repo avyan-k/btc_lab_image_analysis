@@ -25,14 +25,14 @@ def train_model(
     valid_loader,
     train_count,
     valid_count,
-    num_epochs:int=200,
-    number_of_validations:int=3,
-    samples_per_class:int = -1,
-    learning_rate:float=0.001,
-    weight_decay:float=0.001,
+    num_epochs: int = 200,
+    number_of_validations: int = 3,
+    samples_per_class: int = -1,
+    learning_rate: float = 0.001,
+    weight_decay: float = 0.001,
 ):
-    losses = np.empty((num_epochs,2)) # list of tuple train_loss,val_loss
-    accuracies = np.empty((num_epochs,2)) #list of tuple train_acc,val_acc
+    losses = np.empty((num_epochs, 2))  # list of tuple train_loss,val_loss
+    accuracies = np.empty((num_epochs, 2))  # list of tuple train_acc,val_acc
 
     start = time.time()
     val_iteration = max(
@@ -87,7 +87,7 @@ def train_model(
 
             # checks if should compute the validation metrics for plotting later
             if iteration % val_iteration == 0:
-                val_loss,val_accuracy = valid_model(
+                val_loss, val_accuracy = valid_model(
                     model,
                     tumor_type,
                     valid_loader,
@@ -98,11 +98,21 @@ def train_model(
                     model_path,
                 )
 
-        train_accuracy = train_accuracy_sum.cpu()/len(train_loader)
+        train_accuracy = train_accuracy_sum.cpu() / len(train_loader)
         # logging results
-        log_training_results(filepath = loss_path, losses = losses,accuracies = accuracies, epoch = epoch, start = start, current_loss=train_loss, current_accuracy=train_accuracy, val_loss=val_loss, val_accuracy=val_accuracy)
-    plot_losses(losses,num_epochs, model_path)
-    plot_accuracies(accuracies,num_epochs, model_path)
+        log_training_results(
+            filepath=loss_path,
+            losses=losses,
+            accuracies=accuracies,
+            epoch=epoch,
+            start=start,
+            current_loss=train_loss,
+            current_accuracy=train_accuracy,
+            val_loss=val_loss,
+            val_accuracy=val_accuracy,
+        )
+    plot_losses(losses, num_epochs, model_path)
+    plot_accuracies(accuracies, num_epochs, model_path)
     return losses, accuracies
 
 
@@ -154,7 +164,7 @@ def valid_model(
         #         model.state_dict(),
         #         os.path.join(model_directory, f"ep={epoch}-iter={iteration}-seed={torch.seed()}-acc={val_accuracy}.pt"),
         #     )
-        return val_loss,val_accuracy
+        return val_loss, val_accuracy
 
 
 def log_model(model, train_count, valid_count, epochs, input_shape, filepath):
@@ -169,7 +179,17 @@ def log_model(model, train_count, valid_count, epochs, input_shape, filepath):
     return
 
 
-def log_training_results(filepath, losses, accuracies,epoch, start, current_loss, current_accuracy, val_loss, val_accuracy):
+def log_training_results(
+    filepath,
+    losses,
+    accuracies,
+    epoch,
+    start,
+    current_loss,
+    current_accuracy,
+    val_loss,
+    val_accuracy,
+):
     losses[epoch][0] = float(current_loss.cpu())
     losses[epoch][1] = float(val_loss.cpu())
     accuracies[epoch][0] = float(val_accuracy.cpu())
@@ -179,10 +199,13 @@ def log_training_results(filepath, losses, accuracies,epoch, start, current_loss
     # print("It has now been "+ time.strftime("%Mm%Ss", time.gmtime(time.time() - start))  +"  since the beginning of the program")
     with open(filepath, "a", encoding="utf-8") as f:
         f.write(f"Results for Epoch {epoch}\n")
-        f.write(f"Training loss = {current_loss.cpu().item()} --- Training accuracy = {current_accuracy.cpu().item()}\n")
+        f.write(
+            f"Training loss = {current_loss.cpu().item()} --- Training accuracy = {current_accuracy.cpu().item()}\n"
+        )
         current = time.strftime("%Hh%Mm%Ss", time.gmtime(time.time() - start))
         f.write(f"It has now been {current} since the beginning of the program\n\n")
     return
+
 
 def log_validation_results(filepath, epoch, iteration, loss, accuracy):
     # Out to console
@@ -193,6 +216,7 @@ def log_validation_results(filepath, epoch, iteration, loss, accuracy):
         # print(f"Validation loss = {loss} --- Validation accuracy = {accuracy}")
     return
 
+
 def to_see_model(path):
     model = torch.load(path, map_location=DEVICE)
     text_file = open(r"our_models/model1.txt", "w")
@@ -202,8 +226,8 @@ def to_see_model(path):
 
 def plot_losses(losses, number_of_epochs, path):
     xh = np.arange(0, number_of_epochs)
-    plt.plot(xh, losses[:,0], color="b", marker=",", label="Training Loss")
-    plt.plot(xh, losses[:,1], color="r", marker=",", label="Test Loss")
+    plt.plot(xh, losses[:, 0], color="b", marker=",", label="Training Loss")
+    plt.plot(xh, losses[:, 1], color="r", marker=",", label="Test Loss")
     plt.xlabel("Epochs Traversed")
     plt.ylabel("Losses")
     plt.grid()
@@ -215,8 +239,8 @@ def plot_losses(losses, number_of_epochs, path):
 def plot_accuracies(accuracies, number_of_epochs, path):
     plt.figure()
     xh = np.arange(0, number_of_epochs)
-    plt.plot(xh, accuracies[:,0], color="b", marker=",", label="Training Accuracy")
-    plt.plot(xh, accuracies[:,1], color="r", marker=",", label="Test Accuracy")
+    plt.plot(xh, accuracies[:, 0], color="b", marker=",", label="Training Accuracy")
+    plt.plot(xh, accuracies[:, 1], color="r", marker=",", label="Test Accuracy")
     ax = plt.gca()
     ax.yaxis.set_major_formatter(mtick.PercentFormatter(xmax=1.0))
     plt.xlabel("Epochs Traversed")
@@ -264,16 +288,15 @@ if __name__ == "__main__":
             tumor_type=tumor_type,
             seed=seed,
             normalized=False,
-            validation=False
+            validation=False,
         )
         train_loader, test_loader = loaders
         train_count, test_count = count_dict
 
-
         resnet_classifier = md.ResNet_Tumor(classes=len(train_count.keys()))
         if idx == 0:
             summary(resnet_classifier, input_size=(batch_size, 3, 224, 224))
-        losses,accuracies = train_model(
+        losses, accuracies = train_model(
             resnet_classifier,
             tumor_type,
             input_shape=(batch_size, 3, 224, 224),
@@ -283,7 +306,7 @@ if __name__ == "__main__":
             valid_count=test_count,
             num_epochs=number_of_epochs,
             number_of_validations=3,
-            samples_per_class = k,
+            samples_per_class=k,
             learning_rate=0.001,
             weight_decay=0.001,
         )

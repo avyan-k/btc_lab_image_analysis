@@ -61,10 +61,12 @@ if __name__ == "__main__":
     seed = 99
     DEVICE = utils.load_device(seed)
     try:
-        with open('hugging_face.txt') as f:
+        with open("hugging_face.txt") as f:
             token = f.read()
     except FileNotFoundError:
-        raise FileNotFoundError("Access token for hugging fase not found. Save as hugging_face.txt in root directory of project")
+        raise FileNotFoundError(
+            "Access token for hugging fase not found. Save as hugging_face.txt in root directory of project"
+        )
     login(token)
-    if str(DEVICE) != 'cpu':
-        model, transform = get_encoder(enc_name='uni', device=DEVICE) 
+    if str(DEVICE) != "cpu":
+        model, transform = get_encoder(enc_name="uni", device=DEVICE)
