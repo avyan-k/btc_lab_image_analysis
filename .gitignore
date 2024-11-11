@@ -5,7 +5,7 @@ hugging_face.txt
 results/Cases
 results/Clusters
 results/training/**/*.png
-results/training/**/*.txt
+results/training/**/*losses*.txt
 **/torchscript_models
 *.pt
 __pycache__/
