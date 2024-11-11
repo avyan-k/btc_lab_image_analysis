@@ -95,7 +95,7 @@ def load_training_image_data(
         samples_per_class = "all"
 
     mean_std_path = (
-        f"./results/training/models/{tumor_type}-k={samples_per_class}-seed={seed}.txt"
+        f"./results/training/{tumor_type}-k={samples_per_class}-seed={seed}.txt"
     )
     try:
         with open(mean_std_path, "r") as f:
@@ -476,7 +476,7 @@ def compute_and_save_mean_std_per_channel(dataset, path, seed, k=-1):
             stds[i] += images[:, i, :, :].std()
     means.div_(len(loader)).cpu()
     stds.div_(len(loader)).cpu()
-    mean_std_path = "./results/training/models/"
+    mean_std_path = "./results/training/"
     os.makedirs(mean_std_path, exist_ok=True)
     file = os.path.join(mean_std_path, f"{tumor_type}-k={k}-seed={seed}.txt")
     with open(file, "w") as f:
