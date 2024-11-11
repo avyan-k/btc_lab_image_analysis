@@ -69,7 +69,7 @@ class UNI_Tumor(nn.Module):
         else:
             self.fc = feature_classifier
             self.uni = timm.create_model(
-                "vit_large_patch16_224", img_size=224, patch_size=16, init_values=1e-5, num_classes=0, dynamic_img_size=True, pretrained=False
+                "vit_large_patch16_224", img_size=224, patch_size=16, init_values=1e-5, num_classes=classes, dynamic_img_size=True, pretrained=False
                 )
             if UNI_pretrained:
                 try:
@@ -100,13 +100,7 @@ if __name__ == "__main__":
     utils.print_cuda_memory()
     seed = 99
     DEVICE = utils.load_device(seed)
-    if str(DEVICE) != "cpu":
-        model, transform = get_encoder(enc_name="uni", device=DEVICE)
-    classifier = Tumor_Classifier(
-                        layers=5,
-                        neurons_per_layer=64,
-                        dropout=0,
-                        input_neurons=1000,
-                        classes=2,
-                    )
-    classifier.load_state_dict(torch.load("x.pt",map_location='cpu',weights_only=True))
+    uni_tumor = UNI_Tumor(classes=2,UNI_pretrained=True)
+    uni_tumor = uni_tumor.to(DEVICE)
+    # if str(DEVICE) != "cpu":
+    #     model, transform = get_encoder(enc_name="uni", device=DEVICE)
