@@ -229,7 +229,10 @@ def plot_losses(losses, number_of_epochs, path):
     plt.ylabel("Losses")
     plt.grid()
     plt.legend()
-    plt.savefig(os.path.join(path, "losses.png"))
+    img_file = os.path.join(path, "losses.png")
+    if os.path.isfile(img_file):
+        os.remove(img_file)
+    plt.savefig(img_file)
     plt.show()
 
 
@@ -244,7 +247,10 @@ def plot_accuracies(accuracies, number_of_epochs, path):
     plt.ylabel("Accuracies")
     plt.grid()
     plt.legend()
-    plt.savefig(os.path.join(path, "accuracies.png"))
+    img_file = os.path.join(path, "accuracies.png")
+    if os.path.isfile(img_file):
+        os.remove(img_file)
+    plt.savefig(img_file)
     plt.show()
 
 
@@ -291,8 +297,7 @@ if __name__ == "__main__":
         train_count, test_count = count_dict
 
         classifier = md.get_uni_model(classes=len(train_count.keys()),pretrained = False)
-        if idx == 0:
-            summary(classifier, input_size=(batch_size, 3, 224, 224))
+        summary(classifier, input_size=(batch_size, 3, 224, 224))
         losses, accuracies = train_model(
             classifier,
             tumor_type,

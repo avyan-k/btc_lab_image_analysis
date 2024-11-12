@@ -1,326 +1,546 @@
-import torch
-import torch.nn as nn
+import random
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.ticker as mtick
-import torch.optim as optim
-from tqdm import tqdm
-from torcheval.metrics import MulticlassAUROC
-import torchmetrics
 import os
 from pathlib import Path
+import torch
+from torchvision import datasets, transforms
+from torchvision.transforms import v2
+from torch.utils.data import DataLoader, random_split
+from PIL import Image, UnidentifiedImageError
+from tqdm import tqdm
+from datetime import datetime
+from collections import Counter
+from cv2 import imread, imwrite
 import time
-from torchinfo import summary
 
-import loading_data as ld
 import utils
-import models as md
 
 
-def train_model(
-    model,
+class FeatureDataset(datasets.DatasetFolder):
+    def __init__(self, datapath: str, transform=None):
+        """
+        Arguments:
+            datapath (string): Directory in which the class folders are located.
+            transform (callable, optional): Optional transform to be applied
+                on a sample.
+        """
+        super().__init__(
+            root=datapath,
+            loader=lambda path: torch.from_numpy(np.load(str(path))["arr_0"]),
+            extensions=(".npz",),
+            transform=transform,
+        )
+
+
+class TumorImageDataset(datasets.ImageFolder):
+    def __init__(self, datapath: str, cases=None, transform=None):
+        """
+        Arguments:
+            datapath (string): Directory in which the class folders are located.
+            transform (callable, optional): Optional transform to be applied
+                on a sample.
+        """
+        if cases is None:
+            cases = []
+        super().__init__(
+            root=datapath,
+            transform=transform,
+            is_valid_file=lambda x: get_case(os.path.basename(x)) in cases,
+        )
+
+
+class BalancedTumorImageData(datasets.ImageFolder):
+    def __init__(self, datapath: str, k: int, transform=None, target_transform=None):
+        """
+        k represents the number to sample from each class
+        """
+        super().__init__(
+            root=datapath, transform=transform, target_transform=target_transform
+        )
+        self.k = k
+        self.balanced_indices = self._get_balanced_indices()
+        samples_array = np.array(self.samples)
+        self.samples = [
+            (str(sample), int(target))
+            for sample, target in samples_array[self.balanced_indices]
+        ]
+        self.targets = [int(s[1]) for s in self.samples]
+
+    def _get_balanced_indices(self):
+        balanced_class_indices = []
+        for class_label in range(len(self.classes)):
+            all_indices = list(
+                np.where(np.array(self.targets) == class_label)[0]
+            )  # find all instance of class, 0 being success
+            balanced_class_indices.extend(
+                random.sample(all_indices, min(len(all_indices) - 1, self.k))
+            )
+
+        return balanced_class_indices
+
+
+def load_training_image_data(
+    batch_size,
     tumor_type,
     seed,
-    input_shape,
-    train_loader,
-    valid_loader,
-    train_count,
-    valid_count,
-    num_epochs: int = 200,
-    number_of_validations: int = 3,
-    samples_per_class: int = -1,
-    learning_rate: float = 0.001,
-    weight_decay: float = 0.001,
+    samples_per_class=-1,
+    normalized=False,
+    validation=False,
 ):
-    losses = np.empty((num_epochs, 2))  # list of tuple train_loss,val_loss
-    accuracies = np.empty((num_epochs, 2))  # list of tuple train_acc,val_acc
+    image_directory = f"./images/{tumor_type}/images"
+    if normalized:
+        image_directory = f"./images/{tumor_type}/normalized_images"
+    print(f"\nLoading images from: {image_directory}")
+    if samples_per_class == -1:
+        samples_per_class = "all"
 
-    start = time.time()
-    val_iteration = max(
-        len(train_loader) // number_of_validations, 3
-    )  # validate at least every 3 iterations
-
-    model_path = f"./results/training/models/{str(type(model).__name__)}/k={samples_per_class}/{tumor_type}"
-    os.makedirs(model_path,exist_ok=True)
-    loss_path = os.path.join(
-        model_path, f"losses_{str(type(model).__name__)}_{tumor_type}.txt"
+    mean_std_path = (
+        f"./results/training/{tumor_type}-k={samples_per_class}-seed={seed}.txt"
     )
-    log_model(model, train_count, valid_count, num_epochs, input_shape, loss_path, seed)
-
-    model = model.to(DEVICE)
-    # Initializes the Adam optimizer with the model's parameters
-    optimizer = optim.AdamW(
-        model.parameters(), lr=learning_rate, weight_decay=weight_decay
-    )
-    # Define weighted loss functions and accuracy metrics
-    train_loss_function = nn.CrossEntropyLoss(
-        weight=ld.count_dict_tensor(train_count)
-    ).to(DEVICE)
-    accuracy = torchmetrics.Accuracy(
-        task="multiclass", num_classes=len(train_count.keys()), average="weighted"
-    ).to(DEVICE)
-
-    for epoch in tqdm(range(num_epochs), desc="Epoch", position=3, leave=False):
-        train_loss = float("inf")
-        val_loss = float("inf")
-        val_accuracy = 0
-        train_accuracy_sum = 0
-        for iteration, (X_train, y_train) in enumerate(
-            tqdm((train_loader), desc="Iteration", position=4, leave=False)
-        ):
-            # resets all gradients to 0 after each batch
-            optimizer.zero_grad()
-            # pass all data to GPU
-            X_train = X_train.to(DEVICE)
-            y_train = y_train.to(DEVICE)
-            # forward pass of the CNN model on the input data to get predictions
-            y_hat = model(X_train)
-
-            train_accuracy_sum += accuracy(y_hat, y_train)
-            # comparing the model's predictions with the truth labels
-            train_loss = train_loss_function(y_hat, y_train)
-
-            # backpropagating the loss through the model
-            train_loss.backward()
-
-            # takes a step in the direction that minimizes the loss
-            optimizer.step()
-
-            # checks if should compute the validation metrics for plotting later
-            if iteration % val_iteration == 0:
-                val_loss, val_accuracy = valid_model(
-                    model,
-                    tumor_type,
-                    valid_loader,
-                    valid_count,
-                    epoch,
-                    iteration,
-                    accuracy,
-                    model_path,
-                )
-
-        train_accuracy = train_accuracy_sum.cpu() / len(train_loader)
-        # logging results
-        log_training_results(
-            filepath=loss_path,
-            losses=losses,
-            accuracies=accuracies,
-            epoch=epoch,
-            start=start,
-            current_loss=train_loss,
-            current_accuracy=train_accuracy,
-            val_loss=val_loss,
-            val_accuracy=val_accuracy,
+    try:
+        with open(mean_std_path, "r") as f:
+            means = [float(mean) for mean in f.readline().strip().split()]
+            stds = [float(std) for std in f.readline().strip().split()]
+    except (
+        EOFError,
+        FileNotFoundError,
+    ):  # if the file does not exist, load dataset without transforming and compute mean and stf
+        if samples_per_class == "all":
+            dataset = datasets.ImageFolder(
+                root=image_directory, transform=transforms.ToTensor()
+            )
+            k = len(dataset)
+        else:
+            dataset = BalancedTumorImageData(
+                image_directory, k=samples_per_class, transform=transforms.ToTensor()
+            )
+            k = samples_per_class
+        means, stds = compute_and_save_mean_std_per_channel(
+            dataset=dataset, path=mean_std_path, seed=seed, k=k
         )
-    plot_losses(losses, num_epochs, model_path)
-    plot_accuracies(accuracies, num_epochs, model_path)
-    torch.save(
-        model.state_dict(),
-        os.path.join(model_path, f"epochs={num_epochs}-lr={learning_rate}-seed={seed}.pt"),
+
+    print(f"Dataset mean for RGB channels: {means}")
+    print(f"Dataset standard deviation for RGB channels: {stds}")
+    processing_transforms = transforms.Compose(
+        [
+            transforms.Resize((224, 224)),  # ResNet expects 224x224 images
+            transforms.ToTensor(),  # Converts the image to a PyTorch tensor, which also scales the pixel values to the range [0, 1]
+            transforms.Normalize(
+                mean=means, std=stds
+            ),  # Normalizes the image tensor using  mean and standard deviation
+        ]
     )
-    return losses, accuracies
+    if samples_per_class == "all":
+        full_dataset = datasets.ImageFolder(
+            root=image_directory, transform=processing_transforms
+        )
+    else:
+        full_dataset = BalancedTumorImageData(
+            image_directory, k=samples_per_class, transform=processing_transforms
+        )
+    train_size = len(full_dataset)
+    # Split the datasets into training, validation, and testing sets
+    if validation:
+        train_dataset, valid_dataset, test_dataset, _ = random_split(
+            full_dataset,
+            [
+                int(train_size * 0.8),
+                int(train_size * 0.1),
+                int(train_size * 0.1),
+                train_size
+                - int(train_size * 0.8)
+                - int(train_size * 0.1)
+                - int(train_size * 0.1),
+            ],
+        )
+    else:
+        train_dataset, test_dataset, _ = random_split(
+            full_dataset,
+            [
+                int(train_size * 0.8),
+                int(train_size * 0.1),
+                train_size - int(train_size * 0.8) - int(train_size * 0.1),
+            ],
+        )
+        valid_dataset = None
+
+    train_classes = dict(
+        sorted(
+            Counter([full_dataset.targets[i] for i in train_dataset.indices]).items()
+        )
+    )  # counter return a dictionnary of the counts, sort and wrap with dict to get dict sorted by key
+    test_classes = dict(
+        sorted(Counter([full_dataset.targets[i] for i in test_dataset.indices]).items())
+    )
+
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=get_allowed_forks(),
+    )
+
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=get_allowed_forks(),
+    )
+
+    print(
+        f"Training set size: {len(train_dataset)}, Class Proportions: {({full_dataset.classes[k]:v for k,v in train_classes.items()})}"
+    )
+
+    print(
+        f"Test set size: {len(test_dataset)}, Class Proportions: {({full_dataset.classes[k]:v for k,v in test_classes.items()})}"
+    )
+
+    if valid_dataset is not None:
+        valid_classes = dict(
+            sorted(
+                Counter(
+                    [full_dataset.targets[i] for i in valid_dataset.indices]
+                ).items()
+            )
+        )
+        valid_loader = DataLoader(
+            valid_dataset,
+            batch_size=batch_size,
+            shuffle=True,
+            num_workers=get_allowed_forks(),
+        )
+        print(
+            f"Validation set size: {len(valid_dataset)}, Class Proportions: {({full_dataset.classes[k]:v for k,v in valid_classes.items()})}"
+        )
+        return (train_loader, valid_loader, test_loader), (
+            train_classes,
+            valid_classes,
+            test_classes,
+        )
+    else:
+        return (train_loader, test_loader), (
+            train_classes,
+            test_classes,
+        )
 
 
-def valid_model(
-    model,
-    tumor_type,
-    valid_loader,
-    valid_count,
-    epoch,
-    iteration,
-    accuracy_function,
-    model_directory,
+def load_training_image_data_by_case(
+    batch_size, tumor_type, transforms=None, normalized=False
 ):
-    loss_function = nn.CrossEntropyLoss(weight=ld.count_dict_tensor(valid_count)).to(
-        DEVICE
+    image_directory = f"./images/{tumor_type}/images"
+    if normalized:
+        image_directory = f"./images/{tumor_type}/normalized_images"
+    print(f"\nLoading images from: {image_directory}")
+
+    transforms = v2.Compose(
+        [v2.RandomAffine(degrees=15, translate=(0.15, 0.15)), transforms]
     )
-    loss_path = os.path.join(
-        model_directory, f"losses_{str(type(model).__name__)}_{tumor_type}.txt"
+    # get full data set
+    # full_train_dataset = datasets.ImageFolder(image_directory,transform=transforms)
+    total_size = get_size_of_dataset(
+        image_directory, "jpg"
+    )  # compute total size of dataset
+    train_ratio, valid_ratio, test_ratio = 0.7, 0.2, 0.1
+    # Split the datasets into training, validation, and testing sets
+    cases = {k: len(v) for k, v in find_cases(image_directory).items()}
+    label_sets = []
+    for label in next(os.walk(image_directory))[1]:
+        label_directory = os.path.join(image_directory, label)
+        label_sets.append(set(find_cases(label_directory).keys()))
+    intersection = set.intersection(*label_sets)
+    reverse_sort_intersection = sorted(intersection, key=lambda x: cases[x])
+    """
+    We want to collect the intersection of cases for all labels (e.g. tumor, normal) 
+    as we want both the test and train data to contain cases from this intersection
+    the remaining data (most of this is cases that are only tumor) should be training
+    we want to sort and reverse the intersection so that the first half is added to training
+    """
+    train_subset, test_subset = get_case_subsets(
+        cases, reverse_sort_intersection, total_size * (1 - test_ratio)
+    )  # gives us the subsets that contain equal amounts from intersection, and then fills training data until it reaches ratio
+    # cases = {k:len(v) for k,v in find_cases(image_directory).items()}
+    # print([cases[case] for case in train_subset if case in intersection])
+    # print([cases[case] for case in test_subset if case in intersection])
+    training_valid_dataset = TumorImageDataset(
+        datapath=image_directory, cases=train_subset, transform=transforms
     )
-    # stops computing gradients on the validation set
-    with torch.no_grad():
-        # Keep track of the losses & accuracies
-        val_accuracy_sum = 0
-        val_loss_sum = 0
+    test_dataset = TumorImageDataset(
+        datapath=image_directory, cases=test_subset, transform=transforms
+    )
 
-        # Make a predictions on the full validation set, batch by batch
-        for X_val, y_val in tqdm(
-            valid_loader, desc="Validation Iteration", position=5, leave=False
-        ):
-            # Move the batch to GPU if it's available
-            X_val = X_val.to(DEVICE)
-            y_val = y_val.to(DEVICE)
+    train_valid_size = len(training_valid_dataset)
+    train_size, valid_size = (
+        int(train_valid_size * (train_ratio / (train_ratio + valid_ratio))),
+        int(train_valid_size * (valid_ratio / (train_ratio + valid_ratio))),
+    )
 
-            y_hat = model(X_val)
-            val_accuracy_sum += accuracy_function(y_hat, y_val)
-            val_loss_sum += loss_function(y_hat, y_val)
+    train_dataset, valid_dataset, _ = random_split(
+        training_valid_dataset,
+        [train_size, valid_size, train_valid_size - train_size - valid_size],
+    )
 
-        # Divide by the number of iterations (and move back to CPU)
-        val_accuracy = (val_accuracy_sum / len(valid_loader)).cpu()
-        val_loss = (val_loss_sum / len(valid_loader)).cpu()
-
-        log_validation_results(
-            loss_path, epoch, iteration, loss=val_loss, accuracy=val_accuracy
+    train_classes = dict(
+        sorted(
+            Counter(
+                [training_valid_dataset.targets[i] for i in train_dataset.indices]
+            ).items()
         )
-        # print(f"EPOCH = {epoch} --- ITERATION = {iteration}")
-        # print(f"Validation loss = {val_loss} --- Validation accuracy = {val_accuracy}")
-        # if val_accuracy > 0.95:
-        #     torch.save(
-        #         model.state_dict(),
-        #         os.path.join(model_directory, f"ep={epoch}-iter={iteration}-seed={torch.seed()}-acc={val_accuracy}.pt"),
-        #     )
-        return val_loss, val_accuracy
-
-
-def log_model(model, train_count, valid_count, epochs, input_shape, filepath, seed):
-    with open(filepath, "w", encoding="utf-8") as f:
-        f.write(
-            f"Attempting {epochs} epochs on date of {utils.get_time()} on seed {seed} with model:\n"
+    )  # counter return a dictionnary of the counts, sort and wrap with dict to get dict sorted by key
+    valid_classes = dict(
+        sorted(
+            Counter(
+                [training_valid_dataset.targets[i] for i in valid_dataset.indices]
+            ).items()
         )
-        model_stats = summary(model, input_size=input_shape, verbose=0)
-        f.write(f"Model Summary:{str(model_stats)}\n")
-        f.write(f"Training Data Weights: {train_count}\n")
-        f.write(f"Validation Data Weights: {valid_count}\n")
-    return
+    )
+    test_classes = dict(sorted(Counter(test_dataset.targets).items()))
+
+    # print(train_classes,valid_classes,test_classes)
+
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=get_allowed_forks(),
+    )
+    valid_loader = DataLoader(
+        valid_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=get_allowed_forks(),
+    )
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=get_allowed_forks(),
+    )
+    print(training_valid_dataset.classes)
+    print(
+        f"Training set size: {len(train_dataset)}, Class Proportions: {({training_valid_dataset.classes[k]:v for k,v in train_classes.items()})}"
+    )
+    print(
+        f"Validation set size: {len(valid_dataset)}, Class Proportions: {({training_valid_dataset.classes[k]:v for k,v in valid_classes.items()})}"
+    )
+    print(
+        f"Test set size: {len(test_dataset)}, Class Proportions: {({training_valid_dataset.classes[k]:v for k,v in test_classes.items()})}"
+    )
+
+    return (train_loader, valid_loader, test_loader), (
+        train_classes,
+        valid_classes,
+        test_classes,
+    )
 
 
-def log_training_results(
-    filepath,
-    losses,
-    accuracies,
-    epoch,
-    start,
-    current_loss,
-    current_accuracy,
-    val_loss,
-    val_accuracy,
-):
-    losses[epoch][0] = float(current_loss.cpu())
-    losses[epoch][1] = float(val_loss.cpu())
-    accuracies[epoch][0] = float(val_accuracy.cpu())
-    accuracies[epoch][1] = float(current_accuracy.cpu())
+def get_size_of_dataset(directory, extension):
+    return len([path for path in Path(directory).rglob(f"*.{extension}")])
 
-    # print(f"\n\nloss: {training_loss.item()} epoch: {epoch}")
-    # print("It has now been "+ time.strftime("%Mm%Ss", time.gmtime(time.time() - start))  +"  since the beginning of the program")
-    with open(filepath, "a", encoding="utf-8") as f:
-        f.write(f"Results for Epoch {epoch}\n")
-        f.write(
-            f"Training loss = {current_loss.cpu().item()} --- Training accuracy = {current_accuracy.cpu().item()}\n"
+
+def get_annotation_classes(tumor_type):
+    image_directory = f"./images/{tumor_type}/images"
+    return [
+        name
+        for name in os.listdir(image_directory)
+        if name not in [".DS_Store", "__MACOSX"]
+    ]
+
+
+def check_for_unopenable_files(tumor_type, norm=False):
+    if norm:
+        image_directory = f"./images/{tumor_type}/normalized_images"
+    else:
+        image_directory = f"./images/{tumor_type}/images"
+    with open(file=f"./results/{tumor_type}_corrupted_files.txt", mode="w") as f:
+        time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        f.write(f"Checked on {time}\n")
+        images_paths = [path for path in Path(image_directory).rglob("*.jpg")]
+        for image_path in tqdm(images_paths):
+            try:
+                Image.open(image_path)
+                cv2image = imread(str(image_path))
+                if cv2image is None:
+                    raise UnidentifiedImageError
+            except UnidentifiedImageError:
+                f.write(str(image_path))
+
+
+def split_all_images(tumor_type, norm=False):
+    """
+    Splits all 512 x 512 image into 4 256 x 256 tiles, saves them and deletes original
+    """
+    if norm:
+        image_directory = f"./images/{tumor_type}/normalized_images"
+    else:
+        image_directory = f"./images/{tumor_type}/images"
+    for annotation in os.listdir(image_directory):
+        if annotation in [".DS_Store", "__MACOSX"]:
+            continue
+        for image_path in tqdm(os.listdir(os.path.join(image_directory, annotation))):
+            if "tile" in image_path:
+                continue
+            image_full_path = os.path.join(image_directory, annotation, image_path)
+            image = imread(image_full_path)
+            if image.shape == (512, 512, 3):
+                for idx, tile in enumerate(
+                    [
+                        image[x : x + 256, y : y + 256]
+                        for x in range(0, 512, 256)
+                        for y in range(0, 512, 256)
+                    ]
+                ):
+                    # print(os.path.splitext(image_full_path)[0]+f"_tile_{idx+1}"+os.path.splitext(image_full_path)[1])
+                    imwrite(
+                        os.path.splitext(image_full_path)[0]
+                        + f"_tile_{idx+1}"
+                        + os.path.splitext(image_full_path)[1],
+                        tile,
+                    )
+                os.remove(image_full_path)
+
+
+def get_case_subsets(case_dict, intersection, max_size):
+    train_subset = []
+    test_subset = []
+    total = 0  # used to track if we go past max size
+    for i, inter_case in enumerate(intersection):
+        if (
+            total + case_dict[inter_case] >= max_size
+        ):  # if we get to max value from intersection (unlikely) quit
+            break
+        if i > (
+            len(intersection) // 2
+        ):  # for the latter half (biggest values), add to train
+            train_subset.append((inter_case, case_dict[inter_case]))
+            total += case_dict.pop(inter_case)
+        else:  # second half, add to test
+            test_subset.append((inter_case, case_dict[inter_case]))
+            case_dict.pop(inter_case)
+    cases = iter(
+        reversed(sorted(list(case_dict.items()), key=lambda x: x[1]))
+    )  # turn remaining cases into interable
+    while True:
+        try:
+            case = next(cases)
+        except StopIteration:  # break immediately if no more options
+            break
+        value = case[1]
+        if total + value >= max_size:
+            test_subset = test_subset + [case] + list(cases)
+            break
+        train_subset.append(case)
+        total += value
+    return [case[0] for case in train_subset], [case[0] for case in test_subset]
+
+
+def get_case(path: str) -> str:
+    """
+    extracts case from image filepath, assuming "case" is everything before the last _ for the filename
+    """
+    return os.path.basename(path).rsplit("_", 1)[0]
+
+
+def find_cases(image_directory):
+    paths = [path for path in Path(image_directory).rglob("*.jpg")]
+    cases = list(set([get_case(str(path)) for path in paths]))
+    case_dict = {
+        case: sorted(
+            [
+                os.path.join(path.parent, path.name)
+                for path in paths
+                if case in path.name
+            ]
         )
-        current = time.strftime("%Hh%Mm%Ss", time.gmtime(time.time() - start))
-        f.write(f"It has now been {current} since the beginning of the program\n\n")
-    return
+        for case in cases
+    }
+    return case_dict
 
 
-def log_validation_results(filepath, epoch, iteration, loss, accuracy):
-    # Out to console
-    with open(filepath, "a", encoding="utf-8") as f:
-        f.write(f"Validation Results for Epoch {epoch} Iteration {iteration}\n")
-        f.write(f"Validation loss = {loss} --- Validation accuracy = {accuracy}\n\n")
-        # print(f"Validation Results for Epoch {epoch} Iteration {iteration}")
-        # print(f"Validation loss = {loss} --- Validation accuracy = {accuracy}")
-    return
-
-def plot_losses(losses, number_of_epochs, path):
-    xh = np.arange(0, number_of_epochs)
-    plt.plot(xh, losses[:, 0], color="b", marker=",", label="Training Loss")
-    plt.plot(xh, losses[:, 1], color="r", marker=",", label="Test Loss")
-    plt.xlabel("Epochs Traversed")
-    plt.ylabel("Losses")
-    plt.grid()
-    plt.legend()
-    img_file = os.path.join(path, "losses.png")
-    if os.path.isfile(img_file):
-        os.remove(img_file)
-    plt.savefig(img_file)
-    plt.show()
-
-
-def plot_accuracies(accuracies, number_of_epochs, path):
-    plt.figure()
-    xh = np.arange(0, number_of_epochs)
-    plt.plot(xh, accuracies[:, 0], color="b", marker=",", label="Training Accuracy")
-    plt.plot(xh, accuracies[:, 1], color="r", marker=",", label="Test Accuracy")
-    ax = plt.gca()
-    ax.yaxis.set_major_formatter(mtick.PercentFormatter(xmax=1.0))
-    plt.xlabel("Epochs Traversed")
-    plt.ylabel("Accuracies")
-    plt.grid()
-    plt.legend()
-    img_file = os.path.join(path, "accuracies.png")
-    if os.path.isfile(img_file):
-        os.remove(img_file)
-    plt.savefig(img_file)
-    plt.show()
+def compute_and_save_mean_std_per_channel(dataset, path, seed, k=-1):
+    device = utils.load_device(seed)
+    if k == -1:
+        k = len(dataset)
+    if str(device) == "cpu":  # define smaller batchsize if no graphics card
+        batch_size = 10
+    else:
+        batch_size = 200
+    loader = DataLoader(
+        dataset, batch_size=batch_size, num_workers=get_allowed_forks(), shuffle=False
+    )
+    means = torch.zeros(3).to(device)
+    stds = torch.zeros(3).to(device)
+    for images, _ in tqdm(loader):
+        images = images.to(device)
+        for i in range(3):
+            means[i] += images[:, i, :, :].mean()
+            stds[i] += images[:, i, :, :].std()
+    means.div_(len(loader)).cpu()
+    stds.div_(len(loader)).cpu()
+    mean_std_path = "./results/training/"
+    os.makedirs(mean_std_path, exist_ok=True)
+    file = os.path.join(mean_std_path, f"{tumor_type}-k={k}-seed={seed}.txt")
+    with open(file, "w") as f:
+        f.write(" ".join([str(float(mean)) for mean in means]) + "\n")
+        f.write(" ".join([str(float(mean)) for mean in means]))
+    return means, stds
 
 
-def test(model, test_loader, test_count):
-    testing_accuracy_sum = torch.tensor(0.0)
-    model = model.to(DEVICE)
-    accuracy = MulticlassAUROC(num_classes=len(test_count.keys())).to(DEVICE)
-    for X_test, y_test in tqdm(test_loader):
-        with torch.no_grad():
-            X_test = X_test.to(DEVICE)
-            y_test = y_test.to(DEVICE)
-            test_predictions = model(X_test)
-            accuracy.update(test_predictions, y_test)
-            testing_accuracy_sum += accuracy.compute().cpu()
-            accuracy.reset()
+def count_dict_tensor(count_dict: dict):
+    """
+    Converts a dictionnary of the count of each class (returned by load_training_feature_data) into a 1D tensor (required for weighted cross entropy loss)
+    """
+    return torch.tensor(
+        [sum(count_dict.values()) / count_dict[k] for k in sorted(count_dict.keys())]
+    )
 
-    test_accuracy = testing_accuracy_sum / len(test_loader)
 
-    return test_accuracy
+def get_allowed_forks():
+    if os.name == "nt":
+        return 0
+    return 8
 
 
 if __name__ == "__main__":
-    utils.print_cuda_memory()
+    # load_data("vMRT",99,1000)
+    # load_feature_data(100,"VMRT",99,100)
+
+    tumor_type = "DDC_UC_1"
+    image_directory = f"./images/{tumor_type}/images"
     seed = 99
     utils.set_seed(seed)
-    DEVICE = utils.load_device(seed)
-    number_of_epochs = 80
     k = 10000
-    batch_size = 128
-
-    for idx, tumor_type in enumerate(os.listdir("./images")):
+    # print(*list(os.listdir('./images/DDC_UC_1/normalized_images/undiff')),sep='\n')
+    # x = imread('./images/DDC_UC_1/normalized_images/undiff/AS19060903_275284.jpg_tile_3')
+    for tumor_type in os.listdir("images"):
         print(tumor_type)
         if tumor_type not in ["DDC_UC_1"]:
             continue
-        loaders, count_dict = ld.load_training_image_data(
-            batch_size=batch_size,
-            samples_per_class=k,
-            tumor_type=tumor_type,
-            seed=seed,
-            normalized=False,
-            validation=False,
-        )
-        train_loader, test_loader = loaders
-        train_count, test_count = count_dict
+        image_directory = f"./images/{tumor_type}/images"
 
-        classifier = md.get_uni_model(classes=len(train_count.keys()),pretrained = False)
-        summary(classifier, input_size=(batch_size, 3, 224, 224))
-        losses, accuracies = train_model(
-            classifier,
-            tumor_type,
-            seed = seed,
-            input_shape=(batch_size, 3, 224, 224),
-            train_loader=train_loader,
-            valid_loader=test_loader,
-            train_count=train_count,
-            valid_count=test_count,
-            num_epochs=number_of_epochs,
-            number_of_validations=3,
-            samples_per_class=k,
-            learning_rate=0.001,
-            weight_decay=0.001,
+        for annotation in os.listdir(image_directory):
+            print(tumor_type[0].lower() + annotation[0])
+            if annotation in [".DS_Store", "__MACOSX"]:
+                continue
+            for image_path in tqdm(
+                os.listdir(os.path.join(image_directory, annotation))
+            ):
+                image_full_path = os.path.join(image_directory, annotation, image_path)
+                if tumor_type[0].lower() + annotation[0] in image_path:
+                    print(image_full_path)
+                    print(
+                        os.path.splitext(image_full_path)[0][:-2]
+                        + os.path.splitext(image_full_path)[1]
+                    )
+                    os.rename(
+                        image_full_path,
+                        os.path.splitext(image_full_path)[0][:-2]
+                        + os.path.splitext(image_full_path)[1],
+                    )
+
+        start_time = time.time()
+        load_training_image_data(
+            batch_size=128, seed=seed, samples_per_class=k, tumor_type=tumor_type
         )
-        # print(losses,accuracies)
-        # test_dict = {}
-        # for filename in os.listdir(f"results/training/models/ResNet_Tumor/all/{tumor_type}"):
-        #     model_path = os.path.join(f"results/training/models/ResNet_Tumor/{tumor_type}", filename)
-        #     print(model_path)
-        #     if os.path.isfile(model_path) and model_path.endswith('.pt'):
-        #         classifier.load_state_dict(torch.load(model_path, map_location = DEVICE,weights_only=True))
-        #         test_dict[model_path] = test(classifier, test_loader, test_count=test_count)
-        #         print(test_dict[model_path])
-        # if test_dict:
-        #     print(max(test_dict, key=test_dict.get))
+        print(f"--- {(time.time() - start_time)} seconds ---")
+
+        # check_for_unopenable_files(tumor_type)
