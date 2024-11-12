@@ -68,15 +68,15 @@ class UNI_Tumor(nn.Module):
             )
         else:
             self.fc = feature_classifier
-            self.uni = timm.create_model(
-                "vit_large_patch16_224", img_size=224, patch_size=16, init_values=1e-5, num_classes=classes, dynamic_img_size=True, pretrained=False
-                )
-            if UNI_pretrained:
-                try:
-                    local_dir = "./assets/ckpts/vit_large_patch16_224.dinov2.uni_mass100k/"
-                    self.uni.load_state_dict(torch.load(os.path.join(local_dir, "pytorch_model.bin"), map_location="cpu"), strict=True)
-                except FileNotFoundError:
-                    download_UNI_model_weights()
+        self.uni = timm.create_model(
+            "vit_large_patch16_224", img_size=224, patch_size=16, init_values=1e-5, num_classes=classes, dynamic_img_size=True, pretrained=False
+            )
+        if UNI_pretrained:
+            try:
+                local_dir = "./assets/ckpts/vit_large_patch16_224.dinov2.uni_mass100k/"
+                self.uni.load_state_dict(torch.load(os.path.join(local_dir, "pytorch_model.bin"), map_location="cpu"), strict=True)
+            except FileNotFoundError:
+                download_UNI_model_weights()
     def forward(self, x):
         x = self.uni(x)
         x = self.fc(x)
@@ -100,7 +100,7 @@ if __name__ == "__main__":
     utils.print_cuda_memory()
     seed = 99
     DEVICE = utils.load_device(seed)
-    uni_tumor = UNI_Tumor(classes=2,UNI_pretrained=True)
+    uni_tumor = UNI_Tumor(classes=2)
     uni_tumor = uni_tumor.to(DEVICE)
     # if str(DEVICE) != "cpu":
     #     model, transform = get_encoder(enc_name="uni", device=DEVICE)
