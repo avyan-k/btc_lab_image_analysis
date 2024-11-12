@@ -290,7 +290,7 @@ if __name__ == "__main__":
         train_loader, test_loader = loaders
         train_count, test_count = count_dict
 
-        classifier = md.UNI_Tumor(classes=len(train_count.keys()))
+        classifier = md.get_uni_model(classes=len(train_count.keys()),pretrained = False)
         if idx == 0:
             summary(classifier, input_size=(batch_size, 3, 224, 224))
         losses, accuracies = train_model(
