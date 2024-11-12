@@ -290,11 +290,11 @@ if __name__ == "__main__":
         train_loader, test_loader = loaders
         train_count, test_count = count_dict
 
-        resnet_classifier = md.ResNet_Tumor(classes=len(train_count.keys()))
+        classifier = md.UNI_Tumor(classes=len(train_count.keys()))
         if idx == 0:
-            summary(resnet_classifier, input_size=(batch_size, 3, 224, 224))
+            summary(classifier, input_size=(batch_size, 3, 224, 224))
         losses, accuracies = train_model(
-            resnet_classifier,
+            classifier,
             tumor_type,
             seed = seed,
             input_shape=(batch_size, 3, 224, 224),
@@ -314,8 +314,8 @@ if __name__ == "__main__":
         #     model_path = os.path.join(f"results/training/models/ResNet_Tumor/{tumor_type}", filename)
         #     print(model_path)
         #     if os.path.isfile(model_path) and model_path.endswith('.pt'):
-        #         resnet_classifier.load_state_dict(torch.load(model_path, map_location = DEVICE,weights_only=True))
-        #         test_dict[model_path] = test(resnet_classifier, test_loader, test_count=test_count)
+        #         classifier.load_state_dict(torch.load(model_path, map_location = DEVICE,weights_only=True))
+        #         test_dict[model_path] = test(classifier, test_loader, test_count=test_count)
         #         print(test_dict[model_path])
         # if test_dict:
         #     print(max(test_dict, key=test_dict.get))
