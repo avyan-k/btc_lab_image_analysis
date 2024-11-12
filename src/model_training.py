@@ -45,7 +45,7 @@ def train_model(
     loss_path = os.path.join(
         model_path, f"losses_{str(type(model).__name__)}_{tumor_type}.txt"
     )
-    log_model(model, train_count, valid_count, num_epochs, input_shape, loss_path)
+    log_model(model, train_count, valid_count, num_epochs, input_shape, loss_path, seed)
 
     model = model.to(DEVICE)
     # Initializes the Adam optimizer with the model's parameters
@@ -172,10 +172,10 @@ def valid_model(
         return val_loss, val_accuracy
 
 
-def log_model(model, train_count, valid_count, epochs, input_shape, filepath):
+def log_model(model, train_count, valid_count, epochs, input_shape, filepath, seed):
     with open(filepath, "w", encoding="utf-8") as f:
         f.write(
-            f"Attempting {epochs} epochs on date of {utils.get_time()} on seed {torch.seed()} with model:\n"
+            f"Attempting {epochs} epochs on date of {utils.get_time()} on seed {seed} with model:\n"
         )
         model_stats = summary(model, input_size=input_shape, verbose=0)
         f.write(f"Model Summary:{str(model_stats)}\n")
