@@ -222,6 +222,7 @@ def log_validation_results(filepath, epoch, iteration, loss, accuracy):
     return
 
 def plot_losses(losses, number_of_epochs, path):
+    plt.figure()
     xh = np.arange(0, number_of_epochs)
     plt.plot(xh, losses[:, 0], color="b", marker=",", label="Training Loss")
     plt.plot(xh, losses[:, 1], color="r", marker=",", label="Test Loss")
