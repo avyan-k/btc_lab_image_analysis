@@ -476,10 +476,7 @@ def compute_and_save_mean_std_per_channel(dataset, path, seed, k=-1):
             stds[i] += images[:, i, :, :].std()
     means.div_(len(loader)).cpu()
     stds.div_(len(loader)).cpu()
-    mean_std_path = "./results/training/"
-    os.makedirs(mean_std_path, exist_ok=True)
-    file = os.path.join(mean_std_path, f"{tumor_type}-k={k}-seed={seed}.txt")
-    with open(file, "w") as f:
+    with open(path, "w") as f:
         f.write(" ".join([str(float(mean)) for mean in means]) + "\n")
         f.write(" ".join([str(float(mean)) for mean in means]))
     return means, stds
