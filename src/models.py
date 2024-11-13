@@ -60,14 +60,38 @@ class ResNet_Tumor(nn.Module):
         x = self.fc(x)
         return x
 
-def get_uni_model(classes, pretrained = False):
+class UNI_Tumor(nn.Module):
+    def __init__(self, classes=2, feature_classifier=None, pretrained = False):
+        super(UNI_Tumor, self).__init__()
+        if feature_classifier is None:
+            self.fc = Tumor_Classifier(
+                layers=5,
+                neurons_per_layer=64,
+                dropout=0,
+                input_neurons=1024,
+                classes=classes,
+            )
+        else:
+            self.fc = feature_classifier
+        self.uni, _ = get_encoder(enc_name="uni",device="cpu")
+        if pretrained:
+            for parameter in self.uni.parameters():
+                parameter.requires_grad = False
+        
+    def forward(self, x):
+        x = self.uni(x)
+        x = self.fc(x)
+        return x
+
+
+def get_uni_model(classes, device, pretrained = False):
     model = timm.create_model(
-        "vit_large_patch16_224", img_size=224, patch_size=16, init_values=1e-5, num_classes=classes, dynamic_img_size=True, pretrained=False
+        "vit_large_patch16_224", img_size=224, patch_size=16, init_values=1e-5, num_classes=0, dynamic_img_size=True, pretrained=False
         )
     if pretrained:
         try:
             local_dir = "./assets/ckpts/vit_large_patch16_224.dinov2.uni_mass100k/"
-            model.load_state_dict(torch.load(os.path.join(local_dir, "pytorch_model.bin"), map_location="cpu"), strict=True)
+            model.load_state_dict(torch.load(os.path.join(local_dir, "pytorch_model.bin"), map_location=device), strict=True)
         except FileNotFoundError:
             download_UNI_model_weights()
     return model
@@ -92,6 +116,9 @@ if __name__ == "__main__":
     DEVICE = utils.load_device(seed)
     if str(DEVICE) != "cpu":
         uni, transform = get_encoder(enc_name="uni", device=DEVICE)
-    uni_tumor = get_uni_model(classes = 2)
+    uni_tumor = get_uni_model(classes=3,device=DEVICE,pretrained=True)
     uni_tumor = uni_tumor.to(DEVICE)
     summary(uni_tumor,(1, 3, 224, 224))
+    x = torch.rand((1, 3, 224, 224)).to(DEVICE)
+    x = uni_tumor(x)
+    print(x.shape)
