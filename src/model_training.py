@@ -197,8 +197,8 @@ def log_training_results(
 ):
     losses[epoch][0] = float(current_loss.cpu())
     losses[epoch][1] = float(val_loss.cpu())
-    accuracies[epoch][0] = float(val_accuracy.cpu())
-    accuracies[epoch][1] = float(current_accuracy.cpu())
+    accuracies[epoch][0] = float(current_accuracy.cpu())
+    accuracies[epoch][1] = float(val_accuracy.cpu())
 
     # print(f"\n\nloss: {training_loss.item()} epoch: {epoch}")
     # print("It has now been "+ time.strftime("%Mm%Ss", time.gmtime(time.time() - start))  +"  since the beginning of the program")
@@ -296,7 +296,7 @@ if __name__ == "__main__":
         train_loader, test_loader = loaders
         train_count, test_count = count_dict
 
-        classifier = md.get_uni_model(classes=len(train_count.keys()),pretrained = False)
+        classifier = md.ResNet_Tumor(classes=len(train_count.keys()))
         summary(classifier, input_size=(batch_size, 3, 224, 224))
         losses, accuracies = train_model(
             classifier,
