@@ -3,7 +3,10 @@ import torch.nn as nn
 import timm
 from huggingface_hub import login, hf_hub_download
 import torch.nn.functional as F
-from uni import get_encoder
+try:
+    from uni import get_encoder
+except ModuleNotFoundError:
+    raise Warning("UNI module not found, model cannot be loaded. Please install at https://github.com/mahmoodlab/UNI")
 import os
 from torchinfo import summary
 
