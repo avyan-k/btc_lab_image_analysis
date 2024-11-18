@@ -97,6 +97,10 @@ def load_training_image_data(
     mean_std_path = (
         f"./results/training/{tumor_type}-k={samples_per_class}-seed={seed}.txt"
     )
+    if normalized:
+        mean_std_path = (
+        f"./results/training/normalized-{tumor_type}-k={samples_per_class}-seed={seed}.txt"
+        )
     try:
         with open(mean_std_path, "r") as f:
             means = [float(mean) for mean in f.readline().strip().split()]
@@ -510,33 +514,33 @@ if __name__ == "__main__":
     # x = imread('./images/DDC_UC_1/normalized_images/undiff/AS19060903_275284.jpg_tile_3')
     for tumor_type in os.listdir("images"):
         print(tumor_type)
-        if tumor_type not in ["DDC_UC_1"]:
-            continue
+        # if tumor_type not in ["DDC_UC_1"]:
+        #     continue
         image_directory = f"./images/{tumor_type}/images"
 
-        for annotation in os.listdir(image_directory):
-            print(tumor_type[0].lower() + annotation[0])
-            if annotation in [".DS_Store", "__MACOSX"]:
-                continue
-            for image_path in tqdm(
-                os.listdir(os.path.join(image_directory, annotation))
-            ):
-                image_full_path = os.path.join(image_directory, annotation, image_path)
-                if tumor_type[0].lower() + annotation[0] in image_path:
-                    print(image_full_path)
-                    print(
-                        os.path.splitext(image_full_path)[0][:-2]
-                        + os.path.splitext(image_full_path)[1]
-                    )
-                    os.rename(
-                        image_full_path,
-                        os.path.splitext(image_full_path)[0][:-2]
-                        + os.path.splitext(image_full_path)[1],
-                    )
+        # for annotation in os.listdir(image_directory):
+        #     print(tumor_type[0].lower() + annotation[0])
+        #     if annotation in [".DS_Store", "__MACOSX"]:
+        #         continue
+        #     for image_path in tqdm(
+        #         os.listdir(os.path.join(image_directory, annotation))
+        #     ):
+        #         image_full_path = os.path.join(image_directory, annotation, image_path)
+        #         if tumor_type[0].lower() + annotation[0] in image_path:
+        #             print(image_full_path)
+        #             print(
+        #                 os.path.splitext(image_full_path)[0][:-2]
+        #                 + os.path.splitext(image_full_path)[1]
+        #             )
+        #             os.rename(
+        #                 image_full_path,
+        #                 os.path.splitext(image_full_path)[0][:-2]
+        #                 + os.path.splitext(image_full_path)[1],
+        #             )
 
         start_time = time.time()
         load_training_image_data(
-            batch_size=128, seed=seed, samples_per_class=k, tumor_type=tumor_type
+            batch_size=128, seed=seed, samples_per_class=-1, tumor_type=tumor_type
         )
         print(f"--- {(time.time() - start_time)} seconds ---")
 
