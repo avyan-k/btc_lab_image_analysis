@@ -78,15 +78,7 @@ class BalancedTumorImageData(datasets.ImageFolder):
 
         return balanced_class_indices
 
-
-def load_training_image_data(
-    batch_size,
-    tumor_type,
-    seed,
-    samples_per_class=-1,
-    normalized=False,
-    validation=False,
-):
+def get_image_dataset(tumor_type,seed,samples_per_class = -1, normalized=False):
     image_directory = f"./images/{tumor_type}/images"
     if normalized:
         image_directory = f"./images/{tumor_type}/normalized_images"
@@ -135,13 +127,22 @@ def load_training_image_data(
         ]
     )
     if samples_per_class == "all":
-        full_dataset = datasets.ImageFolder(
+        return datasets.ImageFolder(
             root=image_directory, transform=processing_transforms
         )
     else:
-        full_dataset = BalancedTumorImageData(
+        return BalancedTumorImageData(
             image_directory, k=samples_per_class, transform=processing_transforms
         )
+def load_training_image_data(
+    batch_size,
+    tumor_type,
+    seed,
+    samples_per_class=-1,
+    normalized=False,
+    validation=False,
+):
+    full_dataset = get_image_dataset(tumor_type=tumor_type,seed=seed,samples_per_class=samples_per_class,normalized=normalized)
     train_size = len(full_dataset)
     # Split the datasets into training, validation, and testing sets
     if validation:
@@ -540,7 +541,7 @@ if __name__ == "__main__":
 
         start_time = time.time()
         load_training_image_data(
-            batch_size=128, seed=seed, samples_per_class=-1, tumor_type=tumor_type
+            batch_size=128, seed=seed, samples_per_class=-1, tumor_type=tumor_type,normalized=True
         )
         print(f"--- {(time.time() - start_time)} seconds ---")
 
