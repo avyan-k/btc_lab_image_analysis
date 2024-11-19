@@ -6,7 +6,8 @@ from torch.linalg import LinAlgError
 import pickle
 from torchvision import transforms, io
 from torchvision.utils import save_image
-import cv2
+from torch.utils.data import DataLoader
+import cv2 as cv
 from pathlib import Path
 import os
 from tqdm import tqdm
@@ -111,7 +112,7 @@ def create_case_pdfs(
                         assert normalizer is not None
                         normalizer = normalizer.to(DEVICE)
                         image = T(
-                            cv2.cvtColor(cv2.imread(image_path), cv2.COLOR_BGR2RGB)
+                            cv.cvtColor(cv.imread(image_path), cv.COLOR_BGR2RGB)
                         )
                         img = normalizer.transform(image)
                     else:
@@ -159,7 +160,7 @@ def postprocess_batch_GPU(image_tensor):
 
 
 def get_fitted_macenko(source_path, seed):
-    normalization_source = cv2.cvtColor(cv2.imread(source_path), cv2.COLOR_BGR2RGB)
+    normalization_source = cv.cvtColor(cv.imread(source_path), cv.COLOR_BGR2RGB)
     source_tensor = transforms.ToTensor()(normalization_source).unsqueeze(0)
     normalizer_macenko = NormalizerBuilder.build(
         "macenko", use_cache=True, concentration_method="ls", rng=seed
@@ -237,17 +238,24 @@ def normalization_evaluation(tumor_type, seed, images_per_case, sample_size):
 
 def save_normalized_images(tumor_type, source_path, seed):
     batch_size = 300
-    image_directory = f"./images/{tumor_type}/images"
-    image_loader, filepaths, labels, _ = ld.load_data(
-        batch_size, image_directory, transforms=transforms.ToTensor()
+    image_dataset = ld.get_image_dataset(
+        tumor_type=tumor_type,seed=seed,normalized=False
     )
-    for label in set(labels):
+    filepaths = list(zip(*image_dataset.samples))[0]
+    image_loader = DataLoader(
+        image_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=ld.get_allowed_forks(),
+    )
+    for label in set(image_dataset.classes):
         Path(f"./images/{tumor_type}/normalized_images/{label}").mkdir(
             parents=True, exist_ok=True
         )
     filepath_iterator = iter(filepaths)
     normalizer = get_fitted_macenko(source_path, seed)
     normalizer = normalizer.to(DEVICE)
+
     for batch_index, (images, _) in enumerate(tqdm(image_loader, leave=False)):
         images = images.to(DEVICE)
         try:
@@ -279,9 +287,11 @@ def save_normalized_images(tumor_type, source_path, seed):
             raise e
         for image in images:
             filepath = Path(next(filepath_iterator))
+            # print(filepath)
             normalized_filepath = utils.rename_dir(filepath, 2, "normalized_images")
             # print(normalized_filepath)
             save_image(image, normalized_filepath)
+        break
 
 
 def check_unnormalizable_images(filepaths, source_path, seed):
@@ -315,7 +325,7 @@ if __name__ == "__main__":
         "DDC_UC_1": "./images/DDC_UC_1/images/normal/AS15043088_62194.jpg",
     }
 
-    for tumor_type in tqdm(os.listdir("./images"), leave=False, desc="Folder"):
+    for tumor_type in os.listdir("./images"):
         print(tumor_type)
         if tumor_type in [".DS_Store", "__MACOSX"]:
             continue
@@ -329,6 +339,7 @@ if __name__ == "__main__":
         save_normalized_images(
             tumor_type=tumor_type, source_path=best_sources[tumor_type], seed=seed
         )
+        break
         # metric_dict = normalization_evaluation(tumor_type=tumor_type,seed= seed,images_per_case=images_per_case, sample_size = sample_size)
         # best_norm_cases = nlargest(3, metric_dict.items(), key = lambda k : k[0][1]) # type: ignore
         # with open(f"./pickle/metrics_{tumor_type}_best_norm_cases.txt",'w') as f:
@@ -397,7 +408,7 @@ if __name__ == "__main__":
 #         annotation = 'normal' if annotation_prefix == 'n' else 'tumor'
 #     reference_slide_path = os.path.join(image_directory,annotation, reference_slide) # type: ignore
 #     # print(reference_slide_path)
-#     normalization_source = cv2.cvtColor(cv2.imread(reference_slide_path), cv2.COLOR_BGR2RGB)
+#     normalization_source = cv.cvtColor(cv.imread(reference_slide_path), cv.COLOR_BGR2RGB)
 #     normalizer.fit(T(normalization_source))
 
 #     if not os.path.isfile(os.path.join(result_directory,f'sample_cases_normalized_with_{reference_type}_reference.pdf')):

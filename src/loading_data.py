@@ -78,9 +78,9 @@ class BalancedTumorImageData(datasets.ImageFolder):
 
         return balanced_class_indices
 
-def get_image_dataset(tumor_type,seed,samples_per_class = -1, normalized=False):
+def get_image_dataset(tumor_type,seed,samples_per_class = -1, normalized = True, stain_normalized=False):
     image_directory = f"./images/{tumor_type}/images"
-    if normalized:
+    if stain_normalized:
         image_directory = f"./images/{tumor_type}/normalized_images"
     print(f"\nLoading images from: {image_directory}")
     if samples_per_class == -1:
@@ -89,7 +89,7 @@ def get_image_dataset(tumor_type,seed,samples_per_class = -1, normalized=False):
     mean_std_path = (
         f"./results/training/{tumor_type}-k={samples_per_class}-seed={seed}.txt"
     )
-    if normalized:
+    if stain_normalized:
         mean_std_path = (
         f"./results/training/normalized-{tumor_type}-k={samples_per_class}-seed={seed}.txt"
         )
@@ -115,17 +115,21 @@ def get_image_dataset(tumor_type,seed,samples_per_class = -1, normalized=False):
             dataset=dataset, path=mean_std_path, seed=seed, k=k
         )
 
-    print(f"Dataset mean for RGB channels: {means}")
-    print(f"Dataset standard deviation for RGB channels: {stds}")
     processing_transforms = transforms.Compose(
         [
             transforms.Resize((224, 224)),  # ResNet expects 224x224 images
             transforms.ToTensor(),  # Converts the image to a PyTorch tensor, which also scales the pixel values to the range [0, 1]
-            transforms.Normalize(
-                mean=means, std=stds
-            ),  # Normalizes the image tensor using  mean and standard deviation
         ]
     )
+    if normalized:
+        print(f"Dataset mean for RGB channels: {means}")
+        print(f"Dataset standard deviation for RGB channels: {stds}")
+        processing_transforms = transforms.Compose(
+            [processing_transforms,
+            transforms.Normalize(
+                    mean=means, std=stds
+                ),  # Normalizes the image tensor using  mean and standard deviation)
+            ])
     if samples_per_class == "all":
         return datasets.ImageFolder(
             root=image_directory, transform=processing_transforms
