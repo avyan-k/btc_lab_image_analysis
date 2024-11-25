@@ -72,11 +72,11 @@ if __name__ == "__main__":
 
     for tumor_type in os.listdir("./images"):
         print(tumor_type)
-        if tumor_type in [".DS_Store", "__MACOSX", "SIL"]:
+        if tumor_type not in ["DDC_UC_1"]:
             continue
         norm_weight_path = f"./results/training/models/ResNet_Tumor/{tumor_type}-{samples_per_case}-Normalized.pt"
         unnorm_weight_path = f"./results/training/models/ResNet_Tumor/{tumor_type}-{samples_per_case}-Unnormalized.pt"
-        for weight_path in [norm_weight_path, unnorm_weight_path]:
+        for weight_path in [unnorm_weight_path]:
             if not os.path.isfile(weight_path):
                 raise FileNotFoundError(f"Cannot find weights {weight_path} to load")
             traced_resnet_classifier = get_torchscript_resnet_tumor(

@@ -55,6 +55,18 @@
     {
       "name": "EIN",
       "color": -5225010
+    },
+    {
+      "name": "normal",
+      "color": -11704628
+    },
+    {
+      "name": "undiff",
+      "color": -7398351
+    },
+    {
+      "name": "well_diff",
+      "color": -10448422
     }
   ]
 }

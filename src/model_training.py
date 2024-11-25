@@ -297,24 +297,24 @@ if __name__ == "__main__":
         train_loader, test_loader = loaders
         train_count, test_count = count_dict
 
-        classifier = md.UNI_Tumor(classes=len(train_count.keys()),pretrained=True)
+        classifier = md.ResNet_Tumor(classes=len(train_count.keys()))
         classifier = classifier.to(DEVICE)
         summary(classifier, input_size=(batch_size, 3, 224, 224))
-        losses, accuracies = train_model(
-            classifier,
-            tumor_type,
-            seed = seed,
-            input_shape=(batch_size, 3, 224, 224),
-            train_loader=train_loader,
-            valid_loader=test_loader,
-            train_count=train_count,
-            valid_count=test_count,
-            num_epochs=number_of_epochs,
-            number_of_validations=3,
-            samples_per_class=k,
-            learning_rate=0.001,
-            weight_decay=0.001
-        )
+        # losses, accuracies = train_model(
+        #     classifier,
+        #     tumor_type,
+        #     seed = seed,
+        #     input_shape=(batch_size, 3, 224, 224),
+        #     train_loader=train_loader,
+        #     valid_loader=test_loader,
+        #     train_count=train_count,
+        #     valid_count=test_count,
+        #     num_epochs=number_of_epochs,
+        #     number_of_validations=3,
+        #     samples_per_class=k,
+        #     learning_rate=0.001,
+        #     weight_decay=0.001
+        # )
         # print(losses,accuracies)
         # test_dict = {}
         # for filename in os.listdir(f"results/training/models/ResNet_Tumor/all/{tumor_type}"):
