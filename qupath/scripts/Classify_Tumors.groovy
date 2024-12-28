@@ -1,14 +1,19 @@
-//createAnnotationsFromPixelClassifier("Full Tissue", 150000.0, 0.0, "SPLIT", "DELETE_EXISTING", "INCLUDE_IGNORED")
-
+// import ai.djl.pytorch.jni.LibUtils
+// println "LibTorch: " + LibUtils.getLibTorch().dir
+project_path = args[0].toString()
+createAnnotationsFromPixelClassifier(project_path+"/qupath/classifiers/pixel_classifiers/Full Tissue.json", 150000.0, 0.0, "SPLIT", "DELETE_EXISTING", "INCLUDE_IGNORED")
+// path = "/home/btclab1/BTC Lab Shared Folder/QuPath/v0.5"
+// qupath.lib.gui.prefs.PathPrefs.userPathProperty().set(path)
+// print('\n' +qupath.lib.gui.prefs.PathPrefs.userPath+'\n')
+import qupath.ext.wsinfer.WSInfer
 baseThreshold = 0.9
 belowBaseThresholdClass = "Other"
 
 selectAnnotations();
-//qupath.ext.wsinfer.WSInfer.runInference("DDC_UC_1-10000-Unnormalized")
+WSInfer.runInference("DDC_UC_1-10000-Unnormalized")
 def tiles = getTileObjects()
 tiles.each { t ->
     def maximum = Collections.max(t.measurements.entrySet(), Map.Entry.comparingByValue())
-        print(t.measurements)
         if(maximum.getValue() >= baseThreshold) {
            t.classifications = [maximum.getKey()]
            if (maximum.getKey().equals("normal")) {
