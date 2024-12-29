@@ -1,11 +1,20 @@
-// import ai.djl.pytorch.jni.LibUtils
-// println "LibTorch: " + LibUtils.getLibTorch().dir
-project_path = args[0].toString()
-createAnnotationsFromPixelClassifier(project_path+"/qupath/classifiers/pixel_classifiers/Full Tissue.json", 150000.0, 0.0, "SPLIT", "DELETE_EXISTING", "INCLUDE_IGNORED")
-// path = "/home/btclab1/BTC Lab Shared Folder/QuPath/v0.5"
-// qupath.lib.gui.prefs.PathPrefs.userPathProperty().set(path)
-// print('\n' +qupath.lib.gui.prefs.PathPrefs.userPath+'\n')
+// Setting Path for loading extensions
+path = System.getProperty("user.home")+"/QuPath/v0.5"
+qupath.lib.gui.prefs.PathPrefs.userPathProperty().set(path)
+print('\n' +qupath.lib.gui.prefs.PathPrefs.userPath+'\n')
+// Loading PyTorch
+import ai.djl.engine.Engine
+import qupath.ext.djl.DjlTools
+if(!DjlTools.isEngineAvailable("PyTorch")){
+   // downloads PyTorch Engine
+    DjlTools.getEngine("PyTorch", true)
+}
+// verify installation
+import ai.djl.pytorch.jni.LibUtils
+println "LibTorch: " + LibUtils.getLibTorch().dir
 import qupath.ext.wsinfer.WSInfer
+
+createAnnotationsFromPixelClassifier(System.getProperty("user.dir")+"/qupath/classifiers/pixel_classifiers/Full Tissue.json", 150000.0, 0.0, "SPLIT", "DELETE_EXISTING", "INCLUDE_IGNORED")
 baseThreshold = 0.9
 belowBaseThresholdClass = "Other"
 

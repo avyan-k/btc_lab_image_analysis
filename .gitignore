@@ -2,6 +2,8 @@ images
 features
 assets
 hugging_face.txt
+results
+results/inference/*.txt
 results/Cases
 results/Clusters
 results/training/**/*.png
