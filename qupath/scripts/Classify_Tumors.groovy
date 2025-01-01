@@ -27,13 +27,13 @@ println "LibTorch: " + LibUtils.getLibTorch().dir
 import qupath.ext.wsinfer.WSInfer
 
 // Inference
-// createAnnotationsFromPixelClassifier(classifierPath, 150000.0, 0.0, "SPLIT", "DELETE_EXISTING", "INCLUDE_IGNORED")
+createAnnotationsFromPixelClassifier(classifierPath, 150000.0, 0.0, "SPLIT", "DELETE_EXISTING", "INCLUDE_IGNORED")
 
 baseThreshold = 0.9
 belowBaseThresholdClass = "Other"
 
 selectAnnotations();
-//WSInfer.runInference("DDC_UC_1-10000-Unnormalized")
+WSInfer.runInference("DDC_UC_1-10000-Unnormalized")
 def tiles = getTileObjects()
 tiles.each { t ->
     def maximum = Collections.max(t.measurements.entrySet(), Map.Entry.comparingByValue())
@@ -126,22 +126,21 @@ imageoutputFile.append("Tumor Classes"+sep+classes[0])
 for(i=1;i<classes.length;i++) {
     imageoutputFile.append(sep+classes[i])
 }
-
 // Save tile measurements
-//File outputFile = new File(measurementsPath)
-//outputFile.createNewFile()
-//
-//outputFile.text = "Name,x,y," + String.join(sep,classes) + ",Class"
-//
-//tiles.each { t ->
-//    outputFile.append("\n"+t.getName() + sep)
-//    outputFile.append(t.getROI().getBoundsX() + sep)
-//    outputFile.append(t.getROI().getBoundsY() + sep)
-//    for(tumorclass : classes) {
-//        outputFile.append(t.getMeasurements()[tumorclass] + sep)
-//    }
-//    outputFile.append(t.getPathClass())
-//}
+File outputFile = new File(measurementsPath)
+outputFile.createNewFile()
+
+outputFile.text = "Name,x,y," + String.join(sep,classes) + ",Class"
+
+tiles.each { t ->
+   outputFile.append("\n"+t.getName() + sep)
+   outputFile.append(t.getROI().getBoundsX() + sep)
+   outputFile.append(t.getROI().getBoundsY() + sep)
+   for(tumorclass : classes) {
+       outputFile.append(t.getMeasurements()[tumorclass] + sep)
+   }
+   outputFile.append(t.getPathClass())
+}
 // Save downscaled WSI
 def server = getCurrentServer()
 
