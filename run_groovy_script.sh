@@ -14,7 +14,10 @@ if [[ ! -d "./qupath" ]]; then
 	echo Error: The directory to QuPath project ./qupath does not exist. Please cd to repository directory to run groovy script. 
 	exit 3
 fi
+source activate base
+conda activate btc-labs
 for filename in $IMDIR*.ndpi; do
-    QuPath script "./qupath/scripts/Classify_Tumors.groovy" --image="$filename" > "./results/inference/$(basename "$filename"_debug.txt)"
     echo "$filename"
+    QuPath script "./qupath/scripts/Classify_Tumors.groovy" --image="$filename" > "./results/inference/$(basename "$filename"_inference_debug.txt)"
+	python src/WSI_heatmap.py "$filename"
 done

@@ -1,6 +1,18 @@
+String fs = System.getProperty("file.separator")
 // Setting Path for loading extensions
-path = System.getProperty("user.home")+"/QuPath/v0.5"
-qupath.lib.gui.prefs.PathPrefs.userPathProperty().set(path)
+
+String extensionPath = String.join(fs,System.getProperty("user.home").toString(),"QuPath","v0.5")
+// check if script is run from project
+if (getProject() != null) {
+    resultsPath = String.join(fs,getProject().getPath().getParent().getParent().toString(), "results","inference") 
+    classifierPath = "Full Tissue"
+}
+else {
+   resultsPath = String.join(fs,System.getProperty("user.dir"), "results","inference") 
+   classifierPath = String.join(fs,System.getProperty("user.dir").toString(),"qupath","classifiers","pixel_classifiers","Full Tissue.json")
+}
+print(resultsPath)
+qupath.lib.gui.prefs.PathPrefs.userPathProperty().set(extensionPath)
 print('\n' +qupath.lib.gui.prefs.PathPrefs.userPath+'\n')
 // Loading PyTorch
 import ai.djl.engine.Engine
@@ -14,58 +26,56 @@ import ai.djl.pytorch.jni.LibUtils
 println "LibTorch: " + LibUtils.getLibTorch().dir
 import qupath.ext.wsinfer.WSInfer
 
-//Inference
-createAnnotationsFromPixelClassifier(System.getProperty("user.dir")+"/qupath/classifiers/pixel_classifiers/Full Tissue.json", 150000.0, 0.0, "SPLIT", "DELETE_EXISTING", "INCLUDE_IGNORED")
+// Inference
+// createAnnotationsFromPixelClassifier(classifierPath, 150000.0, 0.0, "SPLIT", "DELETE_EXISTING", "INCLUDE_IGNORED")
+
 baseThreshold = 0.9
 belowBaseThresholdClass = "Other"
 
 selectAnnotations();
-WSInfer.runInference("DDC_UC_1-10000-Unnormalized")
+//WSInfer.runInference("DDC_UC_1-10000-Unnormalized")
 def tiles = getTileObjects()
 tiles.each { t ->
-
-    t.setColor(ColorTools.packARGB(
-    (int) (t.measurements.get("normal")*255.0)+1,
-    143,
-    28,
-    49,
-    )) //red
-    t.setColor(ColorTools.packARGB(
-    (int) (t.measurements.get("well_diff")*255.0)+1,
-    153,
-    204,
-    153,
-    )) //green
-    t.setColor(ColorTools.packARGB(
-    (int) (t.measurements.get("undiff")*255.0)+1,
-    77,
-    102,
-    204,
-    )) //blu
-
-//    def maximum = Collections.max(t.measurements.entrySet(), Map.Entry.comparingByValue())
-//        if(maximum.getValue() >= baseThreshold) {
-//           t.classifications = [maximum.getKey()]
-//           if (maximum.getKey().equals("normal")) {
-//              t.setColor(143,28,49) //red
-//           } else if (maximum.getKey().equals("well_diff")) {
-//               t.setColor(153,204,153) //green
-//           } else {
-//              t.setColor(77,102,204)  //blue
-//           }
-//        }
-//        else {
-//           t.classifications = [belowBaseThresholdClass]
-//    t.setColor(ColorTools.packARGB(
-//    1,
-//    0,
-//    0,
-//    0,
-//    )) //red
-//)
+    def maximum = Collections.max(t.measurements.entrySet(), Map.Entry.comparingByValue())
+    if(maximum.getValue() >= baseThreshold) {
+        t.classifications = [maximum.getKey()]
+        if (maximum.getKey().equals("normal")) {
+            t.setColor(ColorTools.packARGB(
+            (int) (t.measurements.get("normal")*255.0)+1,
+            143,
+            28,
+            49,
+            )) //red          
+        } 
+        else if (maximum.getKey().equals("well_diff")) {
+            t.setColor(ColorTools.packARGB(
+            (int) (t.measurements.get("well_diff")*255.0)+1,
+            153,
+            204,
+            153,
+            )) //green
+        } 
+        else {
+            t.setColor(ColorTools.packARGB(
+            (int) (t.measurements.get("undiff")*255.0)+1,
+            77,
+            102,
+            204,
+            )) //blu
+        }
+    }
+    else {
+        t.classifications = [belowBaseThresholdClass]
+        t.setColor(ColorTools.packARGB(
+        255,
+        255,
+        200,
+        0
+        )) //yellow
+    }
 }
 runPlugin('qupath.lib.plugins.objects.TileClassificationsToAnnotationsPlugin', '{"pathClass":"All classes","deleteTiles":false,"clearAnnotations":false,"splitAnnotations":false}')
-def classes = tiles[0].measurements.keySet()
+String[] classes = tiles[0].measurements.keySet()
 for (tumorclass : classes) {
     selectObjectsByClassification(tumorclass);
     mergeSelectedAnnotations();
@@ -78,55 +88,61 @@ selectObjectsByClassification("Region*");
 mergeSelectedAnnotations()
 resetSelection()
 
-
 // Export image and measurements
-def sep = ","
-resultsPath = System.getProperty("user.dir")+ System.getProperty("file.separator") + "measurements" + System.getProperty("file.separator")
+String sep = ","
 
-imageData = getCurrentServer().getMetadata()
-imageName = imageData.getName().toString()
-imageFolder = resultsPath + imageData.getName() + System.getProperty("file.separator")
+def imageData = getCurrentServer().getMetadata()
+String imageName = imageData.getName().toString()
 
-def measurementsPath = imageFolder+ "measurements.csv"
-def imageDataPath = imageFolder +"image_data.csv"
-def imagePath = imageFolder +"resized_image.png"
+String imageFolder = String.join(fs,resultsPath,imageName.substring(0, imageName.lastIndexOf('.')),"measurements") + fs
+File imageDirectory = new File(imageFolder);
+if (!imageDirectory.exists()){
+    imageDirectory.mkdirs();
+}
 
-def imageoutputFile = new File(imageDataPath)
+String measurementsPath = imageFolder+ "measurements.csv"
+String imageDataPath = imageFolder +"image_data.csv"
+String imagePath = imageFolder +"resized_image.png"
+// Save WSI metadata
+File imageoutputFile = new File(imageDataPath)
 imageoutputFile.createNewFile()
 
 imageoutputFile.text = "Name," + imageName + "\n"
 
-imageoutputFile.append("Image Height,"+imageData.getHeight() + "\n")
-imageoutputFile.append("Image Width,"+imageData.getWidth() + "\n")
-
 imageoutputFile.append("Pixel Height,"+imageData.getPixelHeightMicrons() + "\n")
 imageoutputFile.append("Pixel Width,"+imageData.getPixelWidthMicrons() + "\n")
 
+imageoutputFile.append("Image Height,"+imageData.getHeight() + "\n")
+imageoutputFile.append("Image Width,"+imageData.getWidth() + "\n")
+
+imageoutputFile.append("Tile Height," + tiles[0].getROI().getBoundsWidth() + "\n")
+imageoutputFile.append("Tile Width," + tiles[0].getROI().getBoundsHeight() + "\n")
+
 imageoutputFile.append("Downsample Level,"+imageData.getLevels()[5].getDownsample() + "\n")
-imageoutputFile.append("Pixel Height,"+imageData.getLevels()[5].getHeight() + "\n")
-imageoutputFile.append("Pixel Width,"+imageData.getLevels()[5].getWidth())
+imageoutputFile.append("Downsample Height,"+imageData.getLevels()[5].getHeight() + "\n")
+imageoutputFile.append("Downsample Width,"+imageData.getLevels()[5].getWidth()+ "\n")
 
-//print imageData.getHeight()
-//print imageData.getWidth()
-//print imageData.getPixelHeightMicrons()
-//print imageData.getPixelWidthMicrons()
-//print imageData.getLevels()[5].getDownsample()
-//print imageData.getLevels()[5].getHeight()
-//print imageData.getLevels()[5].getWidth()
-
-def outputFile = new File(measurementsPath)
-outputFile.createNewFile()
-outputFile.text = "Name,x,y,normal,undiff,well_diff,Class"
-tiles.each { t ->
-   outputFile.append("\n"+t.getName() + sep)
-   outputFile.append(t.getROI().getBoundsX() + sep)
-   outputFile.append(t.getROI().getBoundsY() + sep)
-   for(String key:t.getMeasurements().keySet()) {
-      outputFile.append(+t.getMeasurements()[key] + sep)
-   }
-   outputFile.append(t.getPathClass())
+imageoutputFile.append("Tumor Classes"+sep+classes[0])
+for(i=1;i<classes.length;i++) {
+    imageoutputFile.append(sep+classes[i])
 }
 
+// Save tile measurements
+//File outputFile = new File(measurementsPath)
+//outputFile.createNewFile()
+//
+//outputFile.text = "Name,x,y," + String.join(sep,classes) + ",Class"
+//
+//tiles.each { t ->
+//    outputFile.append("\n"+t.getName() + sep)
+//    outputFile.append(t.getROI().getBoundsX() + sep)
+//    outputFile.append(t.getROI().getBoundsY() + sep)
+//    for(tumorclass : classes) {
+//        outputFile.append(t.getMeasurements()[tumorclass] + sep)
+//    }
+//    outputFile.append(t.getPathClass())
+//}
+// Save downscaled WSI
 def server = getCurrentServer()
 
 def requestFull = RegionRequest.createInstance(server, 32)
