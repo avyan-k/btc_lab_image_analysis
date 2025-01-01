@@ -16,8 +16,14 @@ if [[ ! -d "./qupath" ]]; then
 fi
 source activate base
 conda activate btc-labs
-for filename in $IMDIR*.ndpi; do
-    echo "$filename"
-    QuPath script "./qupath/scripts/Classify_Tumors.groovy" --image="$filename" > "./results/inference/$(basename "$filename"_inference_debug.txt)"
+export PYTORCH_LIBRARY_PATH="/home/btclab1/miniconda3/envs/btc-labs/lib/python3.10/site-packages"
+export PYTORCH_VERSION=2.0.1
+export PYTORCH_FLAVOR=CUDA 11.8
+for fullfilename in "$IMDIR"/*.ndpi; do
+	echo "$fullfilename"
+	filename=$(basename -- "$fullfilename")
+	filename="${filename%.*}"
+    QuPath script "./qupath/scripts/Classify_Tumors.groovy" --image="$fullfilename" > "./results/inference/$(basename "$filename"_inference_debug.txt)"
 	python src/WSI_heatmap.py "$filename"
+	break
 done
