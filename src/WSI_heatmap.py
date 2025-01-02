@@ -25,7 +25,7 @@ def generate_heatmap(filepath):
     class_colored = image.copy()
     for tumor_class in tumor_classes:
         measurements = np.zeros_like(image)
-        for _, row in tile_measurements.iterrows(),total=tile_measurements.shape[0]:
+        for _, row in tile_measurements.iterrows():
             x = max(int(row["x"] // image_data["Downsample Level"]), 0)
             y = max(int(row["y"] // image_data["Downsample Level"]), 0)
             # print(x,y)
@@ -50,7 +50,7 @@ def generate_heatmap(filepath):
             os.path.join(filepath,"heatmaps",f"heatmap_{tumor_class}.png"), cv.cvtColor(super_imposed_img, cv.COLOR_BGR2RGB)
         )
     classes_blurred = cv.GaussianBlur(class_colored,(17,17),sigmaX=10)
-    os.mkdirs(os.path.join(filepath,"heatmaps"),exist_ok=True)
+    os.makedirs(os.path.join(filepath,"heatmaps"),exist_ok=True)
     cv.imwrite(
         os.path.join(filepath,"heatmaps","tumor_classes.png"), cv.cvtColor(classes_blurred, cv.COLOR_BGR2RGB)
     )
