@@ -22,6 +22,7 @@ def generate_heatmap(filepath):
         tumor_class: list(color_dict.keys())[i]
         for i, tumor_class in enumerate(tumor_classes)
     }
+    os.makedirs(os.path.join(filepath,"heatmaps"),exist_ok=True)
     class_colored = image.copy()
     for tumor_class in tumor_classes:
         measurements = np.zeros_like(image)
@@ -50,14 +51,12 @@ def generate_heatmap(filepath):
             os.path.join(filepath,"heatmaps",f"heatmap_{tumor_class}.png"), cv.cvtColor(super_imposed_img, cv.COLOR_BGR2RGB)
         )
     classes_blurred = cv.GaussianBlur(class_colored,(17,17),sigmaX=10)
-    os.makedirs(os.path.join(filepath,"heatmaps"),exist_ok=True)
     cv.imwrite(
         os.path.join(filepath,"heatmaps","tumor_classes.png"), cv.cvtColor(classes_blurred, cv.COLOR_BGR2RGB)
     )
 
 def getHeatMap(image,blur,threshold=0.9):
-    heatmap = cv.threshold(image,255*threshold,255,cv.THRESH_BINARY)[1]
-    heatmap = cv.GaussianBlur(heatmap,(65,65),sigmaX=blur)
+    heatmap = cv.GaussianBlur(image,(65,65),sigmaX=blur)
     heatmap = cv.applyColorMap(heatmap, cv.COLORMAP_JET)
     return cv.applyColorMap(heatmap, cv.COLORMAP_JET)
 

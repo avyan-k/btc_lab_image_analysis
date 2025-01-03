@@ -25,5 +25,4 @@ for fullfilename in "$IMDIR"/*.ndpi; do
 	filename="${filename%.*}"
     QuPath script "./qupath/scripts/Classify_Tumors.groovy" --image="$fullfilename" > "./results/inference/$(basename "$filename"_inference_debug.txt)"
 	python src/WSI_heatmap.py "$filename"
-	break
 done
