@@ -1,3 +1,10 @@
+import ai.djl.engine.Engine
+import qupath.ext.djl.DjlTools
+import ai.djl.util.Utils
+import ai.djl.pytorch.jni.LibUtils
+import ai.djl.util.cuda.CudaUtils
+import qupath.ext.wsinfer.WSInfer
+
 String fs = System.getProperty("file.separator")
 // Setting Path for loading extensions
 
@@ -11,20 +18,20 @@ else {
    resultsPath = String.join(fs,System.getProperty("user.dir"), "results","inference") 
    classifierPath = String.join(fs,System.getProperty("user.dir").toString(),"qupath","classifiers","pixel_classifiers","Full Tissue.json")
 }
-print(resultsPath)
+println(resultsPath)
 qupath.lib.gui.prefs.PathPrefs.userPathProperty().set(extensionPath)
-print('\n' +qupath.lib.gui.prefs.PathPrefs.userPath+'\n')
+println('\n' +qupath.lib.gui.prefs.PathPrefs.userPath)
+
 // Loading PyTorch
-import ai.djl.engine.Engine
-import qupath.ext.djl.DjlTools
 if(!DjlTools.isEngineAvailable("PyTorch")){
    // downloads PyTorch Engine by calling DJL extension methods, files will be installed in ~/.djl.ai
     DjlTools.getEngine("PyTorch", true)
 }
+System.setProperty("offline","false")
+println("Default Engine: "+Engine.getInstance().getDefaultEngineName())
+println("GPU count: "+CudaUtils.getGpuCount())
 // verify installation
-import ai.djl.pytorch.jni.LibUtils
 println "LibTorch: " + LibUtils.getLibTorch().dir
-import qupath.ext.wsinfer.WSInfer
 
 // Inference
 createAnnotationsFromPixelClassifier(classifierPath, 150000.0, 0.0, "SPLIT", "DELETE_EXISTING", "INCLUDE_IGNORED")

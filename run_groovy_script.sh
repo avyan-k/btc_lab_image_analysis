@@ -16,9 +16,6 @@ if [[ ! -d "./qupath" ]]; then
 fi
 source activate base
 conda activate btc-labs
-export PYTORCH_LIBRARY_PATH="/home/btclab1/miniconda3/envs/btc-labs/lib/python3.10/site-packages"
-export PYTORCH_VERSION=2.0.1
-export PYTORCH_FLAVOR=CUDA 11.8
 for fullfilename in "$IMDIR"/*.ndpi; do
 	echo "$fullfilename"
 	filename=$(basename -- "$fullfilename")
