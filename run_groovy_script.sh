@@ -16,9 +16,9 @@ if [[ ! -d "./qupath" ]]; then
 fi
 source activate base
 conda activate btc-labs
-export PYTORCH_LIBRARY_PATH="/home/btclab1/miniconda3/envs/btc-labs/lib/python3.10/site-packages"
-export PYTORCH_VERSION=2.0.1
-export PYTORCH_FLAVOR=CUDA 11.8
+# Uncomment below if QUPATH throws error when initializeing pytorch engine
+# conda install -c conda-forge cudatoolkit=11.8 cudnn=8.9.7 -y
+# cp ~/miniconda3/envs/btc-labs/lib/python3.10/site-packages/torch/lib/libcudnn.so.8 ~/.djl.ai/pytorch/2.0.1-cu118-linux-x86_64/libcudnn.so.8
 for fullfilename in "$IMDIR"/*.ndpi; do
 	echo "$fullfilename"
 	filename=$(basename -- "$fullfilename")
