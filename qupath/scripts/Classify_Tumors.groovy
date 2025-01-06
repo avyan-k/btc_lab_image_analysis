@@ -35,7 +35,7 @@ println "LibTorch: " + LibUtils.getLibTorch().dir
 
 // Inference
 createAnnotationsFromPixelClassifier(classifierPath, 150000.0, 0.0, "SPLIT", "DELETE_EXISTING", "INCLUDE_IGNORED")
-
+Downsample = 5
 baseThreshold = 0.9
 belowBaseThresholdClass = "Other"
 
@@ -125,9 +125,9 @@ imageoutputFile.append("Image Width,"+imageData.getWidth() + "\n")
 imageoutputFile.append("Tile Height," + tiles[0].getROI().getBoundsWidth() + "\n")
 imageoutputFile.append("Tile Width," + tiles[0].getROI().getBoundsHeight() + "\n")
 
-imageoutputFile.append("Downsample Level,"+imageData.getLevels()[5].getDownsample() + "\n")
-imageoutputFile.append("Downsample Height,"+imageData.getLevels()[5].getHeight() + "\n")
-imageoutputFile.append("Downsample Width,"+imageData.getLevels()[5].getWidth()+ "\n")
+imageoutputFile.append("Downsample Level,"+imageData.getLevels()[Downsample].getDownsample() + "\n")
+imageoutputFile.append("Downsample Height,"+imageData.getLevels()[Downsample].getHeight() + "\n")
+imageoutputFile.append("Downsample Width,"+imageData.getLevels()[Downsample].getWidth()+ "\n")
 
 imageoutputFile.append("Tumor Classes"+sep+classes[0])
 for(i=1;i<classes.length;i++) {
@@ -151,6 +151,6 @@ tiles.each { t ->
 // Save downscaled WSI
 def server = getCurrentServer()
 
-def requestFull = RegionRequest.createInstance(server, 32)
+def requestFull = RegionRequest.createInstance(server, 2**Downsample)
 writeImageRegion(server, requestFull, imagePath)
 print "Done!"
