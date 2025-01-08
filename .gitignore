@@ -19,4 +19,4 @@ tempCodeRunnerFile.py
 *.whl
 *.backup
 *.pkl
-test/*.groovy
+local*.sh

@@ -8,7 +8,6 @@ import qupath.ext.wsinfer.WSInfer
 String fs = System.getProperty("file.separator")
 // Setting Path for loading extensions
 
-String extensionPath = String.join(fs,System.getProperty("user.home").toString(),"QuPath","v0.5")
 // check if script is run from project
 if (getProject() != null) {
     resultsPath = String.join(fs,getProject().getPath().getParent().getParent().toString(), "results","inference") 
@@ -19,28 +18,31 @@ else {
    classifierPath = String.join(fs,System.getProperty("user.dir").toString(),"qupath","classifiers","pixel_classifiers","Full Tissue.json")
 }
 println(resultsPath)
-qupath.lib.gui.prefs.PathPrefs.userPathProperty().set(extensionPath)
-println('\n' +qupath.lib.gui.prefs.PathPrefs.userPath)
 
-// Loading PyTorch
-if(!DjlTools.isEngineAvailable("PyTorch")){
-   // downloads PyTorch Engine by calling DJL extension methods, files will be installed in ~/.djl.ai
-    DjlTools.getEngine("PyTorch", true)
-}
-System.setProperty("offline","false")
-println("Default Engine: "+Engine.getInstance().getDefaultEngineName())
-println("GPU count: "+CudaUtils.getGpuCount())
 // verify installation
-println "LibTorch: " + LibUtils.getLibTorch().dir
+import ai.djl.pytorch.jni.LibUtils
+println "Pytorch Library Path: " + LibUtils.getLibTorch().dir
+println("GPU count: "+CudaUtils.getGpuCount())
+
 
 // Inference
+clearAllObjects();
 createAnnotationsFromPixelClassifier(classifierPath, 150000.0, 0.0, "SPLIT", "DELETE_EXISTING", "INCLUDE_IGNORED")
-
+selectAnnotations();
+runPlugin('qupath.lib.algorithms.TilerPlugin', '{"tileSizeMicrons":117.6064,"trimToROI":true,"makeAnnotations":false,"removeParentAnnotation":false}')
+Downsample = 2
 baseThreshold = 0.9
 belowBaseThresholdClass = "Other"
 
-selectAnnotations();
-WSInfer.runInference("DDC_UC_1-10000-Unnormalized")
+selectTiles();
+import qupath.ext.wsinfer.ui.WSInferPrefs
+// Set parallel tile loaders
+WSInferPrefs.numWorkersProperty().setValue(16);
+// Set batch size
+WSInferPrefs.batchSizeProperty().setValue(64);
+println(WSInferPrefs.batchSizeProperty().getValue())
+qupath.ext.wsinfer.WSInfer.runInference("DDC_UC_1-10000-Unnormalized")
+
 def tiles = getTileObjects()
 tiles.each { t ->
     def maximum = Collections.max(t.measurements.entrySet(), Map.Entry.comparingByValue())
@@ -68,7 +70,7 @@ tiles.each { t ->
             77,
             102,
             204,
-            )) //blu
+            )) //blue
         }
     }
     else {
@@ -81,19 +83,19 @@ tiles.each { t ->
         )) //yellow
     }
 }
-runPlugin('qupath.lib.plugins.objects.TileClassificationsToAnnotationsPlugin', '{"pathClass":"All classes","deleteTiles":false,"clearAnnotations":false,"splitAnnotations":false}')
 String[] classes = tiles[0].measurements.keySet()
-for (tumorclass : classes) {
-    selectObjectsByClassification(tumorclass);
-    mergeSelectedAnnotations();
-    resetSelection();
-}
-selectObjectsByClassification("Other");
-mergeSelectedAnnotations()
-resetSelection()
-selectObjectsByClassification("Region*");
-mergeSelectedAnnotations()
-resetSelection()
+//runPlugin('qupath.lib.plugins.objects.TileClassificationsToAnnotationsPlugin', '{"pathClass":"All classes","deleteTiles":false,"clearAnnotations":false,"splitAnnotations":false}')
+//for (tumorclass : classes) {
+//    selectObjectsByClassification(tumorclass);
+//    mergeSelectedAnnotations();
+//    resetSelection();
+//}
+//selectObjectsByClassification("Other");
+//mergeSelectedAnnotations()
+//resetSelection()
+//selectObjectsByClassification("Region*");
+//mergeSelectedAnnotations()
+//resetSelection()
 
 // Export image and measurements
 String sep = ","
@@ -125,9 +127,9 @@ imageoutputFile.append("Image Width,"+imageData.getWidth() + "\n")
 imageoutputFile.append("Tile Height," + tiles[0].getROI().getBoundsWidth() + "\n")
 imageoutputFile.append("Tile Width," + tiles[0].getROI().getBoundsHeight() + "\n")
 
-imageoutputFile.append("Downsample Level,"+imageData.getLevels()[5].getDownsample() + "\n")
-imageoutputFile.append("Downsample Height,"+imageData.getLevels()[5].getHeight() + "\n")
-imageoutputFile.append("Downsample Width,"+imageData.getLevels()[5].getWidth()+ "\n")
+imageoutputFile.append("Downsample Level,"+imageData.getLevels()[Downsample].getDownsample() + "\n")
+imageoutputFile.append("Downsample Height,"+imageData.getLevels()[Downsample].getHeight() + "\n")
+imageoutputFile.append("Downsample Width,"+imageData.getLevels()[Downsample].getWidth()+ "\n")
 
 imageoutputFile.append("Tumor Classes"+sep+classes[0])
 for(i=1;i<classes.length;i++) {
@@ -151,6 +153,6 @@ tiles.each { t ->
 // Save downscaled WSI
 def server = getCurrentServer()
 
-def requestFull = RegionRequest.createInstance(server, 32)
+def requestFull = RegionRequest.createInstance(server, 2**Downsample)
 writeImageRegion(server, requestFull, imagePath)
 print "Done!"
