@@ -5,8 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mtick
 import torch.optim as optim
 from tqdm import tqdm
-from torcheval.metrics import MulticlassAUROC
-import torchmetrics
+from torcheval.metrics.functional import multiclass_auroc,multiclass_f1_score
 import os
 from pathlib import Path
 import time
@@ -31,6 +30,7 @@ def train_model(
     samples_per_class: int = -1,
     learning_rate: float = 0.001,
     weight_decay: float = 0.001,
+    imbalanced: bool = False,
 ):
     losses = np.empty((num_epochs, 2))  # list of tuple train_loss,val_loss
     accuracies = np.empty((num_epochs, 2))  # list of tuple train_acc,val_acc
@@ -56,10 +56,10 @@ def train_model(
     train_loss_function = nn.CrossEntropyLoss(
         weight=ld.count_dict_tensor(train_count)
     ).to(DEVICE)
-    accuracy = torchmetrics.Accuracy(
-        task="multiclass", num_classes=len(train_count.keys()), average="weighted"
-    ).to(DEVICE)
-
+    if imbalanced:
+        accuracy = lambda y_hat, y: multiclass_f1_score(y_hat.cpu(), y.cpu(), num_classes=len(train_count.keys()))
+    else:
+        accuracy = lambda y_hat, y: multiclass_auroc(y_hat.cpu(), y.cpu(), num_classes=len(train_count.keys()))
     for epoch in tqdm(range(num_epochs), desc="Epoch", position=3, leave=False):
         train_loss = float("inf")
         val_loss = float("inf")
@@ -279,7 +279,7 @@ if __name__ == "__main__":
     utils.set_seed(seed)
     DEVICE = utils.load_device(seed)
     number_of_epochs = 80
-    k = -1
+    k = 20000
     batch_size = 128
 
     for idx, tumor_type in enumerate(os.listdir("./images")):
@@ -296,25 +296,28 @@ if __name__ == "__main__":
         )
         train_loader, test_loader = loaders
         train_count, test_count = count_dict
-
+        count_array = np.array(list(train_count.values()))
+        # dataset is imbalanced if the largest class at over ten times the size of the smallest class
+        imbalance = count_array.max() / count_array.min() > 2
         classifier = md.ResNet_Tumor(classes=len(train_count.keys()))
         classifier = classifier.to(DEVICE)
         summary(classifier, input_size=(batch_size, 3, 224, 224))
-        # losses, accuracies = train_model(
-        #     classifier,
-        #     tumor_type,
-        #     seed = seed,
-        #     input_shape=(batch_size, 3, 224, 224),
-        #     train_loader=train_loader,
-        #     valid_loader=test_loader,
-        #     train_count=train_count,
-        #     valid_count=test_count,
-        #     num_epochs=number_of_epochs,
-        #     number_of_validations=3,
-        #     samples_per_class=k,
-        #     learning_rate=0.001,
-        #     weight_decay=0.001
-        # )
+        losses, accuracies = train_model(
+            classifier,
+            tumor_type,
+            seed = seed,
+            input_shape=(batch_size, 3, 224, 224),
+            train_loader=train_loader,
+            valid_loader=test_loader,
+            train_count=train_count,
+            valid_count=test_count,
+            num_epochs=number_of_epochs,
+            number_of_validations=3,
+            samples_per_class=k,
+            learning_rate=0.001,
+            weight_decay=0.001,
+            imbalanced=imbalance
+        )
         # print(losses,accuracies)
         # test_dict = {}
         # for filename in os.listdir(f"results/training/models/ResNet_Tumor/all/{tumor_type}"):

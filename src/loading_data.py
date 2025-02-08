@@ -166,9 +166,9 @@ def load_training_image_data(
         train_dataset, test_dataset, _ = random_split(
             full_dataset,
             [
-                int(train_size * 0.8),
+                int(train_size * 0.9),
                 int(train_size * 0.1),
-                train_size - int(train_size * 0.8) - int(train_size * 0.1),
+                train_size - int(train_size * 0.9) - int(train_size * 0.1),
             ],
         )
         valid_dataset = None
