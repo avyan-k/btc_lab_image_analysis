@@ -143,7 +143,7 @@ def load_training_image_data(
     tumor_type,
     seed,
     samples_per_class=-1,
-    normalized=False,
+    normalized=True,
     validation=False,
 ):
     full_dataset = get_image_dataset(tumor_type=tumor_type,seed=seed,samples_per_class=samples_per_class,normalized=normalized)

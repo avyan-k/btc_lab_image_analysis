@@ -26,12 +26,13 @@ println("GPU count: "+CudaUtils.getGpuCount())
 
 
 // Inference
+Downsample = 3
+baseThreshold = 0.9
 clearAllObjects();
 createAnnotationsFromPixelClassifier(classifierPath, 150000.0, 0.0, "SPLIT", "DELETE_EXISTING", "INCLUDE_IGNORED")
 selectAnnotations();
 runPlugin('qupath.lib.algorithms.TilerPlugin', '{"tileSizeMicrons":117.6064,"trimToROI":true,"makeAnnotations":false,"removeParentAnnotation":false}')
-Downsample = 2
-baseThreshold = 0.9
+
 belowBaseThresholdClass = "Other"
 
 selectTiles();

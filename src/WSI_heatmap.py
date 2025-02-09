@@ -23,7 +23,7 @@ def generate_heatmap(filepath):
         for i, tumor_class in enumerate(tumor_classes)
     }
     os.makedirs(os.path.join(filepath,"heatmaps"),exist_ok=True)
-    class_colored = image.copy()
+    class_colored = np.ones_like(image)
     for tumor_class in tumor_classes:
         measurements = np.zeros_like(image)
         for _, row in tile_measurements.iterrows():
@@ -35,24 +35,29 @@ def generate_heatmap(filepath):
                     y : y + image_data["Tile Height"] // image_data["Downsample Level"],
                     x : x + image_data["Tile Width"] // image_data["Downsample Level"],
                     :,
-                ] = color_dict[tumor_colors[row["Class"]]]
+                ] = color_dict[tumor_colors[row["Class"]]] if row["Class"] != "Other" else 0
             else:
                 measurements[
                     y : y + image_data["Tile Height"] // image_data["Downsample Level"],
                     x : x + image_data["Tile Width"] // image_data["Downsample Level"],
                     :,
-                ] = row[tumor_class] * 255.0
+                ] = row[tumor_class] * 255.0 
 
         if tumor_class == "Other":
             continue
+
         heatmap = getHeatMap(measurements,blur=15,threshold=0.9)
+        cv.imwrite(
+            os.path.join(filepath,"heatmaps",f"Colormap_{tumor_class}.png"), cv.cvtColor(heatmap, cv.COLOR_BGR2RGB)
+        )
         super_imposed_img = cv.addWeighted(heatmap, 0.25, image, 0.75, 0)
         cv.imwrite(
             os.path.join(filepath,"heatmaps",f"heatmap_{tumor_class}.png"), cv.cvtColor(super_imposed_img, cv.COLOR_BGR2RGB)
         )
-    classes_blurred = cv.GaussianBlur(class_colored,(17,17),sigmaX=10)
+    classes = cv.GaussianBlur(class_colored,(17,17),sigmaX=10)
+    # classes = cv.addWeighted(classes, 0.75, image, 0.5, 0)
     cv.imwrite(
-        os.path.join(filepath,"heatmaps","tumor_classes.png"), cv.cvtColor(classes_blurred, cv.COLOR_BGR2RGB)
+        os.path.join(filepath,"heatmaps","tumor_classes.png"), cv.cvtColor(classes, cv.COLOR_BGR2RGB)
     )
 
 def getHeatMap(image,blur,threshold=0.9):
@@ -85,10 +90,11 @@ def getMetaData(filepath):
 
 def getColors():
     return {
-        "red": [143, 28, 49],
+        "yellow": [255, 200, 0],
+
         "blue": [77, 102, 204],
         "green": [153, 204, 153],
-        "yellow": [255, 200, 0],
+        "red": [143, 28, 49],
     }
 
 
