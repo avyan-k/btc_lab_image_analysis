@@ -26,9 +26,9 @@ def train_model(
     valid_loader,
     train_count,
     valid_count,
+    save_path,
     num_epochs: int = 200,
     number_of_validations: int = 3,
-    samples_per_class: int = -1,
     learning_rate: float = 0.001,
     weight_decay: float = 0.001,
     imbalanced: bool = False,
@@ -41,10 +41,8 @@ def train_model(
         len(train_loader) // number_of_validations, 3
     )  # validate at least every 3 iterations
 
-    model_path = f"./results/training/models/{str(type(model).__name__)}/k={samples_per_class}/{tumor_type}"
-    os.makedirs(model_path,exist_ok=True)
     loss_path = os.path.join(
-        model_path, f"losses_{str(type(model).__name__)}_{tumor_type}.txt"
+        save_path, f"losses_{str(type(model).__name__)}_{tumor_type}.txt"
     )
     log_model(model, train_count, valid_count, num_epochs, input_shape, loss_path, seed)
 
@@ -97,7 +95,7 @@ def train_model(
                     epoch,
                     iteration,
                     accuracy,
-                    model_path,
+                    save_path,
                 )
 
         train_accuracy = train_accuracy_sum / len(train_loader)
@@ -113,11 +111,11 @@ def train_model(
             val_loss=val_loss,
             val_accuracy=val_accuracy,
         )
-    plot_losses(losses, num_epochs, model_path)
-    plot_accuracies(accuracies, num_epochs, model_path)
+    plot_losses(losses, num_epochs, save_path)
+    plot_accuracies(accuracies, num_epochs, save_path)
     torch.save(
         model.state_dict(),
-        os.path.join(model_path, f"epochs={num_epochs}-lr={learning_rate}-seed={seed}.pt"),
+        os.path.join(save_path, f"epochs={num_epochs}-lr={learning_rate}-seed={seed}.pt"),
     )
     return losses, accuracies
 
@@ -282,6 +280,8 @@ if __name__ == "__main__":
     number_of_epochs = 80
     k = 3000
     batch_size = 128
+    proven_mutation_only = False
+    normalize = True
 
     for idx, tumor_type in enumerate(os.listdir("./images")):
         print(tumor_type)
@@ -292,18 +292,31 @@ if __name__ == "__main__":
             samples_per_class=k,
             tumor_type=tumor_type,
             seed=seed,
-            normalized=True,
-            proven_mutation_only=False,
+            normalized=normalize,
+            proven_mutation_only=proven_mutation_only,
             validation=False,
         )
-        train_loader, test_loader = loaders
-        train_count, test_count = count_dict
+        if len(loaders) == 3:
+            train_loader, valid_loader, test_loader = loaders
+        else:
+            train_loader, test_loader = loaders
+        if len(count_dict) == 3:
+            train_count, valid_count, test_count = count_dict
+        else:
+            train_count, test_count = count_dict
         count_array = np.array(list(train_count.values()))
         # dataset is imbalanced if the largest class at over ten times the size of the smallest class
         imbalance = count_array.max() / count_array.min() > 2
         classifier = md.ResNet_Tumor(classes=len(train_count.keys()))
         classifier = classifier.to(DEVICE)
         summary(classifier, input_size=(batch_size, 3, 224, 224))
+        model_path = f"./results/training/models/{str(type(classifier).__name__)}/k={k}"
+        if normalize:
+            model_path += "_normalized"
+        if proven_mutation_only:
+            model_path += "_proven_mutation"
+        model_path += f"/{tumor_type}"
+        os.makedirs(model_path,exist_ok=True)
         losses, accuracies = train_model(
             classifier,
             tumor_type,
@@ -313,9 +326,9 @@ if __name__ == "__main__":
             valid_loader=test_loader,
             train_count=train_count,
             valid_count=test_count,
+            save_path=model_path,
             num_epochs=number_of_epochs,
             number_of_validations=3,
-            samples_per_class=k,
             learning_rate=0.001,
             weight_decay=0.001,
             imbalanced=imbalance
