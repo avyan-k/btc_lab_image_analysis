@@ -150,8 +150,7 @@ def get_loaders_training_image_data(
     batch_size,
     validation=False,
 ):
-    full_dataset = get_image_dataset(tumor_type=tumor_type,seed=seed,samples_per_class=samples_per_class,normalized=normalized)
-    train_size = len(full_dataset)
+    train_size = len(dataset)
     # Split the datasets into training, validation, and testing sets
     if validation:
         train_dataset, valid_dataset, test_dataset, _ = random_split(
@@ -223,7 +222,7 @@ def get_loaders_training_image_data(
             num_workers=get_allowed_forks(),
         )
         print(
-            f"Validation set size: {len(valid_dataset)}, Class Proportions: {({full_dataset.classes[k]:v for k,v in valid_classes.items()})}"
+            f"Validation set size: {len(valid_dataset)}, Class Proportions: {({dataset.classes[k]:v for k,v in valid_classes.items()})}"
         )
         return (train_loader, valid_loader, test_loader), (
             train_classes,
@@ -619,7 +618,7 @@ if __name__ == "__main__":
 
         start_time = time.time()
         load_training_image_data(
-            batch_size=128, seed=seed, samples_per_class=-1, tumor_type=tumor_type,normalized=True, proven_mutation_only=True
+            batch_size=128, seed=seed, samples_per_class=-1, tumor_type=tumor_type,normalized=True, proven_mutation_only=False
         )
         print(f"--- {(time.time() - start_time)} seconds ---")
 
