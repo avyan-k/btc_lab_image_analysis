@@ -33,29 +33,35 @@ class FeatureDataset(datasets.DatasetFolder):
 
 
 class TumorImageDataset(datasets.ImageFolder):
-    def __init__(self, datapath: str, cases=None, transform=None):
+    def __init__(self, root: str, transform=None,target_transform=None,cases=None):
         """
         Arguments:
             datapath (string): Directory in which the class folders are located.
             transform (callable, optional): Optional transform to be applied
                 on a sample.
         """
-        if cases is None:
-            cases = []
-        super().__init__(
-            root=datapath,
-            transform=transform,
-            is_valid_file=lambda x: get_case(os.path.basename(x)) in cases,
-        )
+        if cases is not None:
+            super().__init__(
+                root=root,
+                transform=transform,
+                target_transform=target_transform,
+                is_valid_file=lambda x: get_case(os.path.basename(x)) in cases,
+            )
+        else:
+            super().__init__(
+                root=root,
+                transform=transform,
+                target_transform=target_transform,
+            )
 
 
-class BalancedTumorImageData(datasets.ImageFolder):
-    def __init__(self, datapath: str, k: int, transform=None, target_transform=None):
+class BalancedTumorImageData(TumorImageDataset):
+    def __init__(self, datapath: str, k: int, transform=None, target_transform=None, cases=None):
         """
         k represents the number to sample from each class
         """
         super().__init__(
-            root=datapath, transform=transform, target_transform=target_transform
+            root=datapath, transform=transform, target_transform=target_transform, cases=cases
         )
         self.k = k
         self.balanced_indices = self._get_balanced_indices()
@@ -78,7 +84,8 @@ class BalancedTumorImageData(datasets.ImageFolder):
 
         return balanced_class_indices
 
-def get_image_dataset(tumor_type,seed,samples_per_class = -1, normalized = True, stain_normalized=False):
+def get_image_dataset(tumor_type,seed,samples_per_class = -1, normalized = True, stain_normalized=False, proven_mutation=False):
+
     image_directory = f"./images/{tumor_type}/images"
     if stain_normalized:
         image_directory = f"./images/{tumor_type}/normalized_images"
@@ -86,34 +93,6 @@ def get_image_dataset(tumor_type,seed,samples_per_class = -1, normalized = True,
     if samples_per_class == -1:
         samples_per_class = "all"
 
-    mean_std_path = (
-        f"./results/training/{tumor_type}-k={samples_per_class}-seed={seed}.txt"
-    )
-    if stain_normalized:
-        mean_std_path = (
-        f"./results/training/normalized-{tumor_type}-k={samples_per_class}-seed={seed}.txt"
-        )
-    try:
-        with open(mean_std_path, "r") as f:
-            means = [float(mean) for mean in f.readline().strip().split()]
-            stds = [float(std) for std in f.readline().strip().split()]
-    except (
-        EOFError,
-        FileNotFoundError,
-    ):  # if the file does not exist, load dataset without transforming and compute mean and stf
-        if samples_per_class == "all":
-            dataset = datasets.ImageFolder(
-                root=image_directory, transform=transforms.ToTensor()
-            )
-            k = len(dataset)
-        else:
-            dataset = BalancedTumorImageData(
-                image_directory, k=samples_per_class, transform=transforms.ToTensor()
-            )
-            k = samples_per_class
-        means, stds = compute_and_save_mean_std_per_channel(
-            dataset=dataset, path=mean_std_path, seed=seed, k=k
-        )
 
     processing_transforms = transforms.Compose(
         [
@@ -122,6 +101,7 @@ def get_image_dataset(tumor_type,seed,samples_per_class = -1, normalized = True,
         ]
     )
     if normalized:
+        means,stds = get_mean_std_per_channel(image_directory,tumor_type,samples_per_class,seed,stain_normalized)
         print(f"Dataset mean for RGB channels: {means}")
         print(f"Dataset standard deviation for RGB channels: {stds}")
         processing_transforms = transforms.Compose(
@@ -131,27 +111,45 @@ def get_image_dataset(tumor_type,seed,samples_per_class = -1, normalized = True,
                 ),  # Normalizes the image tensor using  mean and standard deviation)
             ])
     if samples_per_class == "all":
-        return datasets.ImageFolder(
-            root=image_directory, transform=processing_transforms
-        )
+        if proven_mutation:
+            proven_mutation = get_proven_mutation_caes(tumor_type)
+            return TumorImageDataset(root=image_directory, transform=processing_transforms, cases=proven_mutation)
+        return TumorImageDataset(root=image_directory, transform=processing_transforms)
     else:
+        if proven_mutation:
+            proven_mutation = get_proven_mutation_caes(tumor_type)
+            return BalancedTumorImageData(
+                image_directory, k=samples_per_class, transform=processing_transforms, cases=proven_mutation
+            )
         return BalancedTumorImageData(
             image_directory, k=samples_per_class, transform=processing_transforms
         )
 def load_training_image_data(
+        batch_size,
+        tumor_type,
+        seed,
+        samples_per_class=-1,
+        normalized=False,
+        proven_mutation_only=False,
+        validation=False,
+    ):
+    '''
+    External wrapper for  get_loaders_training_image_data to allow any dataset to be loaded
+    '''
+    full_dataset = get_image_dataset(tumor_type=tumor_type,seed=seed,samples_per_class=samples_per_class,normalized=normalized, proven_mutation=proven_mutation_only)
+    return get_loaders_training_image_data(full_dataset,batch_size,validation=validation)
+
+
+def get_loaders_training_image_data(
+    dataset,
     batch_size,
-    tumor_type,
-    seed,
-    samples_per_class=-1,
-    normalized=False,
     validation=False,
 ):
-    full_dataset = get_image_dataset(tumor_type=tumor_type,seed=seed,samples_per_class=samples_per_class,normalized=normalized)
-    train_size = len(full_dataset)
+    train_size = len(dataset)
     # Split the datasets into training, validation, and testing sets
     if validation:
         train_dataset, valid_dataset, test_dataset, _ = random_split(
-            full_dataset,
+            dataset,
             [
                 int(train_size * 0.8),
                 int(train_size * 0.1),
@@ -164,7 +162,7 @@ def load_training_image_data(
         )
     else:
         train_dataset, test_dataset, _ = random_split(
-            full_dataset,
+            dataset,
             [
                 int(train_size * 0.9),
                 int(train_size * 0.1),
@@ -175,11 +173,11 @@ def load_training_image_data(
 
     train_classes = dict(
         sorted(
-            Counter([full_dataset.targets[i] for i in train_dataset.indices]).items()
+            Counter([dataset.targets[i] for i in train_dataset.indices]).items()
         )
     )  # counter return a dictionnary of the counts, sort and wrap with dict to get dict sorted by key
     test_classes = dict(
-        sorted(Counter([full_dataset.targets[i] for i in test_dataset.indices]).items())
+        sorted(Counter([dataset.targets[i] for i in test_dataset.indices]).items())
     )
 
     train_loader = DataLoader(
@@ -197,18 +195,18 @@ def load_training_image_data(
     )
 
     print(
-        f"Training set size: {len(train_dataset)}, Class Proportions: {({full_dataset.classes[k]:v for k,v in train_classes.items()})}"
+        f"Training set size: {len(train_dataset)}, Class Proportions: {({dataset.classes[k]:v for k,v in train_classes.items()})}"
     )
 
     print(
-        f"Test set size: {len(test_dataset)}, Class Proportions: {({full_dataset.classes[k]:v for k,v in test_classes.items()})}"
+        f"Test set size: {len(test_dataset)}, Class Proportions: {({dataset.classes[k]:v for k,v in test_classes.items()})}"
     )
 
     if valid_dataset is not None:
         valid_classes = dict(
             sorted(
                 Counter(
-                    [full_dataset.targets[i] for i in valid_dataset.indices]
+                    [dataset.targets[i] for i in valid_dataset.indices]
                 ).items()
             )
         )
@@ -243,7 +241,7 @@ def load_training_image_data_by_case(
 
     transforms = v2.Compose(
         [v2.RandomAffine(degrees=15, translate=(0.15, 0.15)), transforms]
-    )
+    ) if transforms is not None else v2.RandomAffine(degrees=15, translate=(0.15, 0.15))
     # get full data set
     # full_train_dataset = datasets.ImageFolder(image_directory,transform=transforms)
     total_size = get_size_of_dataset(
@@ -251,30 +249,15 @@ def load_training_image_data_by_case(
     )  # compute total size of dataset
     train_ratio, valid_ratio, test_ratio = 0.7, 0.2, 0.1
     # Split the datasets into training, validation, and testing sets
-    cases = {k: len(v) for k, v in find_cases(image_directory).items()}
-    label_sets = []
-    for label in next(os.walk(image_directory))[1]:
-        label_directory = os.path.join(image_directory, label)
-        label_sets.append(set(find_cases(label_directory).keys()))
-    intersection = set.intersection(*label_sets)
-    reverse_sort_intersection = sorted(intersection, key=lambda x: cases[x])
-    """
-    We want to collect the intersection of cases for all labels (e.g. tumor, normal) 
-    as we want both the test and train data to contain cases from this intersection
-    the remaining data (most of this is cases that are only tumor) should be training
-    we want to sort and reverse the intersection so that the first half is added to training
-    """
-    train_subset, test_subset = get_case_subsets(
-        cases, reverse_sort_intersection, total_size * (1 - test_ratio)
-    )  # gives us the subsets that contain equal amounts from intersection, and then fills training data until it reaches ratio
+    train_subset, test_subset = get_balanced_train_test_cases(total_size, test_ratio, image_directory)
     # cases = {k:len(v) for k,v in find_cases(image_directory).items()}
     # print([cases[case] for case in train_subset if case in intersection])
     # print([cases[case] for case in test_subset if case in intersection])
     training_valid_dataset = TumorImageDataset(
-        datapath=image_directory, cases=train_subset, transform=transforms
+        root=image_directory, cases=train_subset, transform=transforms
     )
     test_dataset = TumorImageDataset(
-        datapath=image_directory, cases=test_subset, transform=transforms
+        root=image_directory, cases=test_subset, transform=transforms
     )
 
     train_valid_size = len(training_valid_dataset)
@@ -408,6 +391,31 @@ def split_all_images(tumor_type, norm=False):
                 os.remove(image_full_path)
 
 
+def get_proven_mutation_caes(tumor_type):    
+    proven_mutations = []
+    with open(f"./images/{tumor_type}/proven_mutation.txt") as f:
+        for line in f:
+            proven_mutations.append(''.join(line.strip().split('-')))
+    return proven_mutations
+def get_balanced_train_test_cases(total_size,test_ratio,image_directory):
+    cases = {k: len(v) for k, v in find_cases(image_directory).items()}
+    label_sets = []
+    for label in next(os.walk(image_directory))[1]:
+        label_directory = os.path.join(image_directory, label)
+        label_sets.append(set(find_cases(label_directory).keys()))
+    intersection = set.intersection(*label_sets)
+    reverse_sort_intersection = sorted(intersection, key=lambda x: cases[x])
+    """
+    We want to collect the intersection of cases for all labels (e.g. tumor, normal) 
+    as we want both the test and train data to contain cases from this intersection
+    the remaining data (most of this is cases that are only tumor) should be training
+    we want to sort and reverse the intersection so that the first half is added to training
+    """
+    train_subset, test_subset = get_case_subsets(
+        cases, reverse_sort_intersection, total_size * (1 - test_ratio)
+    )  # gives us the subsets that contain equal amounts from intersection, and then fills training data until it reaches ratio
+
+    return train_subset, test_subset
 def get_case_subsets(case_dict, intersection, max_size):
     train_subset = []
     test_subset = []
@@ -440,8 +448,6 @@ def get_case_subsets(case_dict, intersection, max_size):
         train_subset.append(case)
         total += value
     return [case[0] for case in train_subset], [case[0] for case in test_subset]
-
-
 def get_case(path: str) -> str:
     """
     extracts case from image filepath, assuming "case" is everything before the last _ for the filename
@@ -463,6 +469,40 @@ def find_cases(image_directory):
         for case in cases
     }
     return case_dict
+
+def get_mean_std_per_channel(image_directory,tumor_type,samples_per_class,seed,stain_normalized=False):
+    '''
+    Loads mean and standard deviation of the dataset from a file if it exists, otherwise loads dataset at image_directory and computes mean and standard deviation
+    '''
+    mean_std_path = (
+        f"./results/training/{tumor_type}-k={samples_per_class}-seed={seed}.txt"
+    )
+    if stain_normalized:
+        mean_std_path = (
+        f"./results/training/normalized-{tumor_type}-k={samples_per_class}-seed={seed}.txt"
+        )
+    try:
+        with open(mean_std_path, "r") as f:
+            means = [float(mean) for mean in f.readline().strip().split()]
+            stds = [float(std) for std in f.readline().strip().split()]
+    except (
+        EOFError,
+        FileNotFoundError,
+    ):  # if the file does not exist, load dataset without transforming and compute mean and stf
+        if samples_per_class == "all":
+            dataset = datasets.ImageFolder(
+                root=image_directory, transform=transforms.ToTensor()
+            )
+            k = len(dataset)
+        else:
+            dataset = BalancedTumorImageData(
+                image_directory, k=samples_per_class, transform=transforms.ToTensor()
+            )
+            k = samples_per_class
+        means, stds = compute_and_save_mean_std_per_channel(
+            dataset=dataset, path=mean_std_path, seed=seed, k=k
+        )
+    return means,stds
 
 
 def compute_and_save_mean_std_per_channel(dataset, path, seed, k=-1):
@@ -507,11 +547,7 @@ def get_allowed_forks():
 
 
 if __name__ == "__main__":
-    # load_data("vMRT",99,1000)
-    # load_feature_data(100,"VMRT",99,100)
 
-    tumor_type = "DDC_UC_1"
-    image_directory = f"./images/{tumor_type}/images"
     seed = 99
     utils.set_seed(seed)
     k = 10000
@@ -519,8 +555,8 @@ if __name__ == "__main__":
     # x = imread('./images/DDC_UC_1/normalized_images/undiff/AS19060903_275284.jpg_tile_3')
     for tumor_type in os.listdir("images"):
         print(tumor_type)
-        # if tumor_type not in ["DDC_UC_1"]:
-        #     continue
+        if tumor_type not in ["DDC_UC_1"]:
+            continue
         image_directory = f"./images/{tumor_type}/images"
 
         # for annotation in os.listdir(image_directory):
@@ -545,7 +581,7 @@ if __name__ == "__main__":
 
         start_time = time.time()
         load_training_image_data(
-            batch_size=128, seed=seed, samples_per_class=-1, tumor_type=tumor_type,normalized=True
+            batch_size=128, seed=seed, samples_per_class=-1, tumor_type=tumor_type,normalized=True, proven_mutation_only=True
         )
         print(f"--- {(time.time() - start_time)} seconds ---")
 
