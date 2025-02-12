@@ -41,6 +41,7 @@ from tqdm import tqdm
 
 # project files
 import loading_data as ld
+import models as md
 import utils
 
 """FEATURE EXTRACTION"""
@@ -56,6 +57,7 @@ def get_and_save_features_array(
     save=False,
     save_path="",
 ):
+
     image_loader, filepaths, labels, _ = ld.load_data(
         batch_size,
         image_directory,
@@ -76,7 +78,7 @@ def get_and_save_features_array(
             )  # list of feature vectors for each image
     all_features = np.array(torch.cat(features_list, dim=0))
     print("Saving Data")
-    # save feature vectors in numpy arrays
+    # save feature vectors in numpy arrays, REQUIRES FILENAMES
     if save:
         assert save_path != ""
         Path(save_path).mkdir(parents=True, exist_ok=True)
@@ -95,6 +97,45 @@ def get_and_save_features_array(
         np.array(torch.cat(features_list, dim=0)),
     )  # convert list of vectors into numpy array
 
+def get_features_array(
+    model,
+    ):
+    image_loader,classes = ld.load_image_data(
+            batch_size=1000, seed=seed, samples_per_class=-1, tumor_type=tumor_type,normalized=True
+        )
+
+    model = model.to(DEVICE)
+    # get features for images in image_loader
+    features_list = []
+    annotations_list = []
+    for images, annotations in tqdm(image_loader):
+        with torch.no_grad():
+            images = images.to(DEVICE)
+            features = model(images)
+            for feature in features:
+                features_list.append(feature.cpu())
+            for annotation in annotations:
+                annotations_list.append(classes[annotation])
+    # print("Saving Data")
+    # # save feature vectors in numpy arrays, REQUIRES FILENAMES
+    # if save:
+    #     assert save_path != ""
+    #     Path(save_path).mkdir(parents=True, exist_ok=True)
+    #     print("Saving features")
+    #     for annotation_type in list(set(labels)):
+    #         Path(os.path.join(save_path, annotation_type)).mkdir(
+    #             parents=True, exist_ok=True
+    #         )
+    #     for i, features_array in enumerate(tqdm(all_features)):
+    #         filename = os.path.splitext(os.path.basename(filepaths[i]))[0]
+    #         annotation = labels[i]
+    #         np.savez(os.path.join(save_path, annotation, filename), features_array)
+    features_array = np.array(features_list)
+    np.savez(os.path.join(save_path, annotation, filename), features_array)
+    return (
+        annotations_list,
+        features_array,
+    )  # convert list of vectors into numpy array
 
 def get_features_from_disk(tumor_type, model_type, size_of_dataset, sample_size):
     # feature vectors for each image from saved numpy arrays in disk
@@ -140,17 +181,18 @@ def feature_normalizer():
 
 
 def generate_umap_annotation(
-    feature_loader,
+    model,
     seed,
     tumor_type,
     save_plot=False,
     umap_annotation_output_path="",
-    tumor_classes=["normal", "tumor"],
     normalizer=None,
 ):
-    features_array, annotations = get_features_from_loader(
-        feature_loader, classes=tumor_classes
-    )
+    annotations,features_array = get_features_array(model=model)
+    # UMAP dimension reduction on normalized features_array and coloring by annotations
+    print(f"\nGenerating UMAP for the features of {len(features_array)} images ...")
+    print(features_array.shape)
+    print()
     features_scaled = normalizer.fit_transform(features_array)
     umap_model = umap.UMAP(
         n_neighbors=15, min_dist=0.1, metric="euclidean", random_state=seed
@@ -198,7 +240,11 @@ def generate_umap_annotation(
 
 
 def generate_umap_from_dataset(
-    tumor_type, seed, model_type="ResNet", sample=False, sample_size=-1, plot=False
+    tumor_type, 
+    seed, 
+    sample=False, 
+    sample_size=-1, 
+    plot=False
 ):
     """
     Takes features (extracted from images using RESNET) currently in disk and generates UMAP
@@ -216,11 +262,11 @@ def generate_umap_from_dataset(
     """
 
     # Paths to directories
-    image_directory = f"./images/{tumor_type}/normalized_images"
-    feature_directory = f"./features/{model_type}/normalized_{tumor_type}"
-    Path(os.path.join(feature_directory)).mkdir(
-        parents=True, exist_ok=True
-    )  # results directory for this file
+    image_directory = f"./images/{tumor_type}/images"
+    # feature_directory = f"./features/{model_type}/normalized_{tumor_type}"
+    # Path(os.path.join(feature_directory)).mkdir(
+    #     parents=True, exist_ok=True
+    # )  # results directory for this file
     results_directory = "./results/normalized_umap"
     Path(os.path.join(results_directory)).mkdir(
         parents=True, exist_ok=True
@@ -229,13 +275,9 @@ def generate_umap_from_dataset(
     assert os.path.isdir(image_directory)  # TODO change to expection throwing
 
     # Set up parameters
-    number_of_previous_results = len(
-        [name for name in os.listdir(results_directory) if os.path.isfile(name)]
-    )
-    run_id = f"{model_type}_{utils.get_time()[:10]}_{number_of_previous_results}"
     batch_size = 300  # tested to be optimal at 100 batches, should be changed manually
     size_of_image_dataset = ld.get_size_of_dataset(image_directory, extension="jpg")
-    size_of_feature_dataset = ld.get_size_of_dataset(feature_directory, extension="npz")
+    # size_of_feature_dataset = ld.get_size_of_dataset(feature_directory, extension="npz")
 
     if not sample:  # if we do not sample use entire dataset
         sample_size = size_of_image_dataset
@@ -247,60 +289,44 @@ def generate_umap_from_dataset(
     sample_size_text = (
         "all" if not sample else sample_size
     )  # text to indicate sample size in file name
-    umap_annotation_file = f"umap_{tumor_type}_{run_id}_{seed}_{sample_size_text}_annotation.png"  # filename
+    umap_annotation_file = f"umap_{tumor_type}_{seed}_{sample_size_text}_annotation.png"  # filename
     umap_annotation_outpath_path = os.path.join(
         results_directory, umap_annotation_file
     )  # file path
 
     # get features
-    if (
-        size_of_image_dataset != size_of_feature_dataset
-    ):  # assume features have not been extracted
-        print(
-            f"Feature extraction directory {feature_directory} not found or incomplete, launching feature extraction"
-        )
-        print(f"\nSetting up {model_type} model ...")
-        match model_type:
-            case "ResNet":
-                model, transforms = ld.setup_resnet_model(seed)
-            case "VGG16":
-                model, transforms = ld.setup_VGG16_model(seed)
-            case _:
-                raise ValueError("Unknown Model")
-        model.eval()
-        get_and_save_features_array(
-            batch_size=batch_size,
-            model=model,
-            transforms=transforms,
-            image_directory=image_directory,
-            size_of_dataset=size_of_image_dataset,
-            sample_size=sample_size,
-            save=True,
-            save_path=feature_directory,
-        )
+    # if (
+    #     size_of_image_dataset != size_of_feature_dataset
+    # ):  # assume features have not been extracted
+    #     print(
+    #         f"Feature extraction directory {feature_directory} not found or incomplete, launching feature extraction"
+    #     )
+    #     print(f"\nSetting up {model_type} model ...")
+    #     model.eval()
+    #     get_and_save_features_array(
+    #         batch_size=batch_size,
+    #         model=model,
+    #         transforms=transforms,
+    #         image_directory=image_directory,
+    #         size_of_dataset=size_of_image_dataset,
+    #         sample_size=sample_size,
+    #         save=True,
+    #         save_path=feature_directory,
+    #     )
 
-    image_paths, feature_loader, tumor_classes = get_features_from_disk(
-        tumor_type=tumor_type,
-        model_type=model_type,
-        size_of_dataset=size_of_feature_dataset,
-        sample_size=sample_size,
-    )
 
-    # UMAP dimension reduction on normalized features_array and coloring by annotations
-    print(f"\nGenerating UMAP for the features of {len(feature_loader)} images ...")
     umap_embeddings = generate_umap_annotation(
-        feature_loader,
+        model,
         seed,
         tumor_type,
         save_plot=plot,
         umap_annotation_output_path=umap_annotation_outpath_path,
-        tumor_classes=tumor_classes,
         normalizer=feature_normalizer(),
     )
 
     print(f"\nUMAP generation completed at {utils.get_time()}")
 
-    return image_paths, feature_loader, umap_embeddings
+    return umap_embeddings
 
 
 if __name__ == "__main__":
@@ -308,16 +334,17 @@ if __name__ == "__main__":
     DEVICE = utils.load_device(seed)
     # generate_umap_from_dataset(tumor_type="SCCOHT_1", seed = seed,model_type="VGG16",sample=False, sample_size = 1000, plot=True)
     for tumor_type in reversed(os.listdir("./images")):
-        if tumor_type in [".DS_Store", "__MACOSX"]:
+        if tumor_type not in ["DDC_UC_1"]:
             continue
+        model = md.ResNet_Tumor(classes=len(os.listdir(f"./images/{tumor_type}/images")))
+        model.load_state_dict(torch.load(f"./results/training/models/ResNet_Tumor/k=10000/{tumor_type}/epochs=80-lr=0.001-seed=99.pt"))
+        model.fc = torch.nn.Identity()
         print(tumor_type)
         generate_umap_from_dataset(
             tumor_type=tumor_type,
             seed=seed,
-            model_type="ResNet",
             sample=False,
-            sample_size=1000,
-            plot=True,
+            plot=True
         )
 
     # # Set up parameters

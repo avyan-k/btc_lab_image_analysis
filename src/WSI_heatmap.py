@@ -47,9 +47,9 @@ def generate_heatmap(filepath):
             continue
 
         heatmap = getHeatMap(measurements,blur=15,threshold=0.9)
-        cv.imwrite(
-            os.path.join(filepath,"heatmaps",f"Colormap_{tumor_class}.png"), cv.cvtColor(heatmap, cv.COLOR_BGR2RGB)
-        )
+        # cv.imwrite(
+        #     os.path.join(filepath,"heatmaps",f"Colormap_{tumor_class}.png"), cv.cvtColor(heatmap, cv.COLOR_BGR2RGB)
+        # )
         super_imposed_img = cv.addWeighted(heatmap, 0.25, image, 0.75, 0)
         cv.imwrite(
             os.path.join(filepath,"heatmaps",f"heatmap_{tumor_class}.png"), cv.cvtColor(super_imposed_img, cv.COLOR_BGR2RGB)
