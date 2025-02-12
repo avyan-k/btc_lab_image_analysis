@@ -280,7 +280,7 @@ if __name__ == "__main__":
     utils.set_seed(seed)
     DEVICE = utils.load_device(seed)
     number_of_epochs = 80
-    k = -1
+    k = 3000
     batch_size = 128
 
     for idx, tumor_type in enumerate(os.listdir("./images")):
@@ -293,6 +293,7 @@ if __name__ == "__main__":
             tumor_type=tumor_type,
             seed=seed,
             normalized=True,
+            proven_mutation_only=False,
             validation=False,
         )
         train_loader, test_loader = loaders
@@ -303,7 +304,6 @@ if __name__ == "__main__":
         classifier = md.ResNet_Tumor(classes=len(train_count.keys()))
         classifier = classifier.to(DEVICE)
         summary(classifier, input_size=(batch_size, 3, 224, 224))
-        break
         losses, accuracies = train_model(
             classifier,
             tumor_type,

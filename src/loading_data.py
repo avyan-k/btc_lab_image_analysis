@@ -507,17 +507,18 @@ def find_cases(image_directory):
     }
     return case_dict
 
-def get_mean_std_per_channel(image_directory,tumor_type,samples_per_class,seed,stain_normalized=False):
+def get_mean_std_per_channel(image_directory,tumor_type,samples_per_class,seed,stain_normalized=False,proven_mutation = False):
     '''
     Loads mean and standard deviation of the dataset from a file if it exists, otherwise loads dataset at image_directory and computes mean and standard deviation
     '''
     mean_std_path = (
-        f"./results/training/{tumor_type}-k={samples_per_class}-seed={seed}.txt"
+        f"./results/training/{tumor_type}-k={samples_per_class}-seed={seed}"
     )
     if stain_normalized:
-        mean_std_path = (
-        f"./results/training/normalized-{tumor_type}-k={samples_per_class}-seed={seed}.txt"
-        )
+        mean_std_path += "_normalized"
+    if proven_mutation:
+        mean_std_path += "_proven-mutation-only"
+    mean_std_path += ".txt"
     try:
         with open(mean_std_path, "r") as f:
             means = [float(mean) for mean in f.readline().strip().split()]
