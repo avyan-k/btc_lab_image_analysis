@@ -1,5 +1,5 @@
 {
-  "version": "0.5.1",
+  "version": "0.6.0-rc3",
   "createTimestamp": 1715350988658,
   "modifyTimestamp": 1715350988658,
   "uri": "file:/C:/Users/avyan/Documents/btc_lab_image_analysis/qupath/project.qpproj",
@@ -103,7 +103,7 @@
         }
       },
       "entryID": 117,
-      "randomizedName": "5bdb0ec3-9a5e-402c-8e1d-b7c5c4c73ffa",
+      "randomizedName": "c0570577-dd76-4a39-9476-a95c2d5a8aa2",
       "imageName": "AS21057515 - 2024-05-07 19.34.42.ndpi",
       "metadata": {}
     }

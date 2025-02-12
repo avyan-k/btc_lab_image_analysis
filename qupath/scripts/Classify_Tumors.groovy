@@ -26,22 +26,24 @@ println("GPU count: "+CudaUtils.getGpuCount())
 
 
 // Inference
-clearAllObjects();
-createAnnotationsFromPixelClassifier(classifierPath, 150000.0, 0.0, "SPLIT", "DELETE_EXISTING", "INCLUDE_IGNORED")
-selectAnnotations();
-runPlugin('qupath.lib.algorithms.TilerPlugin', '{"tileSizeMicrons":117.6064,"trimToROI":true,"makeAnnotations":false,"removeParentAnnotation":false}')
 Downsample = 2
 baseThreshold = 0.9
 belowBaseThresholdClass = "Other"
-
-selectTiles();
-import qupath.ext.wsinfer.ui.WSInferPrefs
-// Set parallel tile loaders
-WSInferPrefs.numWorkersProperty().setValue(16);
-// Set batch size
-WSInferPrefs.batchSizeProperty().setValue(64);
-println(WSInferPrefs.batchSizeProperty().getValue())
-qupath.ext.wsinfer.WSInfer.runInference("DDC_UC_1-10000-Unnormalized")
+//clearAllObjects();
+//createAnnotationsFromPixelClassifier(classifierPath, 150000.0, 0.0, "SPLIT", "DELETE_EXISTING", "INCLUDE_IGNORED")
+//selectAnnotations();
+//runPlugin('qupath.lib.algorithms.TilerPlugin', '{"tileSizeMicrons":117.6064,"trimToROI":true,"makeAnnotations":false,"removeParentAnnotation":false}')
+//
+//
+//
+//selectTiles();
+//import qupath.ext.wsinfer.ui.WSInferPrefs
+//// Set parallel tile loaders
+//WSInferPrefs.numWorkersProperty().setValue(16);
+//// Set batch size
+//WSInferPrefs.batchSizeProperty().setValue(64);
+//println(WSInferPrefs.batchSizeProperty().getValue())
+//qupath.ext.wsinfer.WSInfer.runInference("DDC_UC_1-10000-Unnormalized")
 
 def tiles = getTileObjects()
 tiles.each { t ->

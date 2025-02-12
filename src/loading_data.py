@@ -85,6 +85,11 @@ class BalancedTumorImageData(TumorImageDataset):
         return balanced_class_indices
 
 def get_image_dataset(tumor_type,seed,samples_per_class = -1, normalized = True, stain_normalized=False, proven_mutation=False):
+    '''
+    Get entire image dataset or a balanced subset (if samples_per_class is set to a positive number). 
+    If normalized is set to true, the mean and standard deviation of the dataset have been computed and saved, they are loaded from the file. Otherwise, they are computed and saved to the file. 
+    If stain_normalized is set to true, the images are loaded from the normalized_images directory.
+    '''
 
     image_directory = f"./images/{tumor_type}/images"
     if stain_normalized:
@@ -129,7 +134,7 @@ def load_training_image_data(
         tumor_type,
         seed,
         samples_per_class=-1,
-        normalized=False,
+        normalized=True,
         proven_mutation_only=False,
         validation=False,
     ):
@@ -145,7 +150,8 @@ def get_loaders_training_image_data(
     batch_size,
     validation=False,
 ):
-    train_size = len(dataset)
+    full_dataset = get_image_dataset(tumor_type=tumor_type,seed=seed,samples_per_class=samples_per_class,normalized=normalized)
+    train_size = len(full_dataset)
     # Split the datasets into training, validation, and testing sets
     if validation:
         train_dataset, valid_dataset, test_dataset, _ = random_split(
@@ -229,11 +235,43 @@ def get_loaders_training_image_data(
             train_classes,
             test_classes,
         )
+def load_image_data(
+    batch_size,     
+    tumor_type,
+    seed,
+    samples_per_class=-1,
+    normalized=True,
 
+):
+    '''
+    Same as load_training_image_data but a single loader is returned with the entire dataset, along with a list of class names
+    '''
+    full_dataset = get_image_dataset(tumor_type=tumor_type,seed=seed,samples_per_class=samples_per_class,normalized=normalized)
+
+    loader = DataLoader(
+        full_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=get_allowed_forks(),
+    )
+
+    classes = dict(
+        sorted(
+            Counter(full_dataset.targets).items()
+        )
+    )  # counter return a dictionnary of the counts, sort and wrap with dict to get dict sorted by key
+
+    print(
+        f"Full dataset size: {len(full_dataset)}, Class Proportions: {({full_dataset.classes[k]:v for k,v in classes.items()})}"
+    )
+    return loader, full_dataset.classes
 
 def load_training_image_data_by_case(
     batch_size, tumor_type, transforms=None, normalized=False
 ):
+    '''
+    Same as load_training_image_data but the algorithm will attempt to balance the dataset by case such that each class has the same number of cases
+    '''
     image_directory = f"./images/{tumor_type}/images"
     if normalized:
         image_directory = f"./images/{tumor_type}/normalized_images"

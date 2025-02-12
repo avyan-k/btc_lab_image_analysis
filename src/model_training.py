@@ -6,6 +6,7 @@ import matplotlib.ticker as mtick
 import torch.optim as optim
 from tqdm import tqdm
 from torcheval.metrics.functional import multiclass_auroc,multiclass_f1_score
+from torcheval.metrics import MulticlassAUROC
 import os
 from pathlib import Path
 import time
@@ -99,7 +100,7 @@ def train_model(
                     model_path,
                 )
 
-        train_accuracy = train_accuracy_sum.cpu() / len(train_loader)
+        train_accuracy = train_accuracy_sum / len(train_loader)
         # logging results
         log_training_results(
             filepath=loss_path,
@@ -156,7 +157,7 @@ def valid_model(
             val_loss_sum += loss_function(y_hat, y_val)
 
         # Divide by the number of iterations (and move back to CPU)
-        val_accuracy = (val_accuracy_sum / len(valid_loader)).cpu()
+        val_accuracy = (val_accuracy_sum / len(valid_loader))
         val_loss = (val_loss_sum / len(valid_loader)).cpu()
 
         log_validation_results(
@@ -279,7 +280,7 @@ if __name__ == "__main__":
     utils.set_seed(seed)
     DEVICE = utils.load_device(seed)
     number_of_epochs = 80
-    k = 20000
+    k = -1
     batch_size = 128
 
     for idx, tumor_type in enumerate(os.listdir("./images")):
@@ -291,7 +292,7 @@ if __name__ == "__main__":
             samples_per_class=k,
             tumor_type=tumor_type,
             seed=seed,
-            normalized=False,
+            normalized=True,
             validation=False,
         )
         train_loader, test_loader = loaders
@@ -302,6 +303,7 @@ if __name__ == "__main__":
         classifier = md.ResNet_Tumor(classes=len(train_count.keys()))
         classifier = classifier.to(DEVICE)
         summary(classifier, input_size=(batch_size, 3, 224, 224))
+        break
         losses, accuracies = train_model(
             classifier,
             tumor_type,
