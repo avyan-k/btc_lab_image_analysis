@@ -111,6 +111,11 @@ def train_model(
             val_loss=val_loss,
             val_accuracy=val_accuracy,
         )
+        # if epoch == 59:
+        #         torch.save(
+        #             model.state_dict(),
+        #             os.path.join(save_path, f"early_epochs={epoch}-lr={learning_rate}-seed={seed}.pt"),
+        #         )
     plot_losses(losses, num_epochs, save_path)
     plot_accuracies(accuracies, num_epochs, save_path)
     torch.save(

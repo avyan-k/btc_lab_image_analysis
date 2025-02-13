@@ -97,9 +97,7 @@ def get_and_save_features_array(
         np.array(torch.cat(features_list, dim=0)),
     )  # convert list of vectors into numpy array
 
-def get_features_array(
-    model,
-    ):
+def get_features_array(model,save=False,save_path=None):
     image_loader,classes = ld.load_image_data(
             batch_size=1000, seed=seed, samples_per_class=-1, tumor_type=tumor_type,normalized=True
         )
@@ -116,13 +114,13 @@ def get_features_array(
                 features_list.append(feature.cpu())
             for annotation in annotations:
                 annotations_list.append(classes[annotation])
-    # print("Saving Data")
-    # # save feature vectors in numpy arrays, REQUIRES FILENAMES
+    print("Saving Data")
+    # save feature vectors in numpy arrays, REQUIRES FILENAMES
     # if save:
-    #     assert save_path != ""
+    #     assert save_path is not None
     #     Path(save_path).mkdir(parents=True, exist_ok=True)
     #     print("Saving features")
-    #     for annotation_type in list(set(labels)):
+    #     for annotation_type in list(classes.keys()):
     #         Path(os.path.join(save_path, annotation_type)).mkdir(
     #             parents=True, exist_ok=True
     #         )
@@ -131,9 +129,9 @@ def get_features_array(
     #         annotation = labels[i]
     #         np.savez(os.path.join(save_path, annotation, filename), features_array)
     features_array = np.array(features_list)
-    np.savez(os.path.join(save_path, annotation, filename), features_array)
+    annotations_array = np.array(annotations_list)
     return (
-        annotations_list,
+        annotations_array,
         features_array,
     )  # convert list of vectors into numpy array
 
@@ -186,9 +184,17 @@ def generate_umap_annotation(
     tumor_type,
     save_plot=False,
     umap_annotation_output_path="",
-    normalizer=None,
+    normalizer=StandardScaler(),
 ):
-    annotations,features_array = get_features_array(model=model)
+    features_filename = f"./results/{tumor_type}_features.npz"
+    annotation_filename = f"./results/{tumor_type}_annotations.npz"
+    if not os.path.isfile(features_filename) or os.path.isfile(annotation_filename):
+        annotations,features_array = get_features_array(model=model)
+        np.savez(features_filename,features_array)
+        np.savez(annotation_filename,annotations)
+    else:
+        features_array = np.load(features_filename)["arr_0"]
+        annotations = np.load(annotation_filename)["arr_0"]
     # UMAP dimension reduction on normalized features_array and coloring by annotations
     print(f"\nGenerating UMAP for the features of {len(features_array)} images ...")
     print(features_array.shape)
@@ -218,7 +224,7 @@ def generate_umap_annotation(
         )  # type: ignore
 
         # legend
-        handles = [
+            Line2D(
             plt.Line2D(
                 [0], [0], marker="o", color="w", markerfacecolor=color, markersize=10
             )
@@ -336,8 +342,9 @@ if __name__ == "__main__":
     for tumor_type in reversed(os.listdir("./images")):
         if tumor_type not in ["DDC_UC_1"]:
             continue
-        model = md.ResNet_Tumor(classes=len(os.listdir(f"./images/{tumor_type}/images")))
-        model.load_state_dict(torch.load(f"./results/training/models/ResNet_Tumor/k=10000/{tumor_type}/epochs=80-lr=0.001-seed=99.pt"))
+        print(len(os.listdir(f"./images/{tumor_type}/images")))
+        model = md.ResNet_Tumor(classes=len(os.listdir(f"./images/{tumor_type}/images"))-1)
+        model.load_state_dict(torch.load(f"./results/training/models/ResNet_Tumor/k=3000/{tumor_type}/epochs=80-lr=0.001-seed=99.pt"))
         model.fc = torch.nn.Identity()
         print(tumor_type)
         generate_umap_from_dataset(

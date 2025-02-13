@@ -45,7 +45,7 @@ class ResNet_Tumor(nn.Module):
         super(ResNet_Tumor, self).__init__()
         if feature_classifier is None:
             self.fc = Tumor_Classifier(
-                layers=5,
+                layers=1,
                 neurons_per_layer=64,
                 dropout=0,
                 input_neurons=1000,
@@ -66,7 +66,7 @@ class UNI_Tumor(nn.Module):
         if feature_classifier is None:
             self.fc = Tumor_Classifier(
                 layers=5,
-                neurons_per_layer=64,
+                neurons_per_layer=500,
                 dropout=0,
                 input_neurons=1024,
                 classes=classes,
@@ -119,6 +119,7 @@ if __name__ == "__main__":
     utils.print_cuda_memory()
     seed = 99
     DEVICE = utils.load_device(seed)
+    resnet_tumor = ResNet_Tumor(classes=2)
     uni_tumor = UNI_Tumor(classes=2,pretrained=True)
     uni_tumor = uni_tumor.to(DEVICE)
     summary(uni_tumor,(1, 3, 224, 224))
