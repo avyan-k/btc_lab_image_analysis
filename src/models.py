@@ -46,8 +46,8 @@ class ResNet_Tumor(nn.Module):
         if feature_classifier is None:
             self.fc = Tumor_Classifier(
                 layers=1,
-                neurons_per_layer=64,
-                dropout=0,
+                neurons_per_layer=500,
+                dropout=0.5,
                 input_neurons=1000,
                 classes=classes,
             )

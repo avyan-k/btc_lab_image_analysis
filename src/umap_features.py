@@ -224,7 +224,7 @@ def generate_umap_annotation(
         )  # type: ignore
 
         # legend
-            Line2D(
+        handles = [
             plt.Line2D(
                 [0], [0], marker="o", color="w", markerfacecolor=color, markersize=10
             )

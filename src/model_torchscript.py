@@ -11,9 +11,9 @@ import loading_data as ld
 def get_torchscript_resnet_tumor(tumor_type, weight_path):
     classes = ld.get_annotation_classes(tumor_type)
     feature_classifier = md.Tumor_Classifier(
-        layers=5,
-        neurons_per_layer=64,
-        dropout=0.0,
+        layers=1,
+        neurons_per_layer=500,
+        dropout=0.5,
         input_neurons=1000,
         classes=len(classes),
     )
@@ -76,7 +76,9 @@ if __name__ == "__main__":
             continue
         norm_weight_path = f"./results/training/models/ResNet_Tumor/{tumor_type}-{samples_per_case}-Normalized.pt"
         unnorm_weight_path = f"./results/training/models/ResNet_Tumor/{tumor_type}-{samples_per_case}-Unnormalized.pt"
-        for weight_path in [unnorm_weight_path]:
+        path2 = "./results/training/models/ResNet_Tumor/DDC_UC_1-3000-Normalized.pt"
+        paths = [norm_weight_path,path2]
+        for weight_path in paths:
             if not os.path.isfile(weight_path):
                 raise FileNotFoundError(f"Cannot find weights {weight_path} to load")
             traced_resnet_classifier = get_torchscript_resnet_tumor(
