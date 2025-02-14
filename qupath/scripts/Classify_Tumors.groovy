@@ -11,10 +11,12 @@ String fs = System.getProperty("file.separator")
 // check if script is run from project
 if (getProject() != null) {
     resultsPath = String.join(fs,getProject().getPath().getParent().getParent().toString(), "results","inference") 
+    modelName = "DDC_UC_1-10000-Normalized"
     classifierPath = "Full Tissue"
 }
 else {
    resultsPath = String.join(fs,System.getProperty("user.dir"), "results","inference") 
+   modelName = args[0]
    classifierPath = String.join(fs,System.getProperty("user.dir").toString(),"qupath","classifiers","pixel_classifiers","Full Tissue.json")
 }
 println(resultsPath)
@@ -26,15 +28,14 @@ println("GPU count: "+CudaUtils.getGpuCount())
 
 
 // Inference
-Downsample = 2
+Downsample = 5
 baseThreshold = 0.9
 belowBaseThresholdClass = "Other"
+
 clearAllObjects();
 createAnnotationsFromPixelClassifier(classifierPath, 150000.0, 0.0, "SPLIT", "DELETE_EXISTING", "INCLUDE_IGNORED")
 selectAnnotations();
 runPlugin('qupath.lib.algorithms.TilerPlugin', '{"tileSizeMicrons":117.6064,"trimToROI":true,"makeAnnotations":false,"removeParentAnnotation":false}')
-
-
 
 selectTiles();
 import qupath.ext.wsinfer.ui.WSInferPrefs
@@ -43,7 +44,7 @@ WSInferPrefs.numWorkersProperty().setValue(16);
 // Set batch size
 WSInferPrefs.batchSizeProperty().setValue(64);
 println(WSInferPrefs.batchSizeProperty().getValue())
-qupath.ext.wsinfer.WSInfer.runInference("DDC_UC_1-10000-Unnormalized")
+qupath.ext.wsinfer.WSInfer.runInference(modelName)
 
 def tiles = getTileObjects()
 tiles.each { t ->
@@ -105,7 +106,7 @@ String sep = ","
 def imageData = getCurrentServer().getMetadata()
 String imageName = imageData.getName().toString()
 
-String imageFolder = String.join(fs,resultsPath,imageName.substring(0, imageName.lastIndexOf('.')),"measurements") + fs
+String imageFolder = String.join(fs,resultsPath,modelName,imageName.substring(0, imageName.lastIndexOf('.')),"measurements") + fs
 File imageDirectory = new File(imageFolder);
 if (!imageDirectory.exists()){
     imageDirectory.mkdirs();
@@ -126,9 +127,6 @@ imageoutputFile.append("Pixel Width,"+imageData.getPixelWidthMicrons() + "\n")
 imageoutputFile.append("Image Height,"+imageData.getHeight() + "\n")
 imageoutputFile.append("Image Width,"+imageData.getWidth() + "\n")
 
-imageoutputFile.append("Tile Height," + tiles[0].getROI().getBoundsWidth() + "\n")
-imageoutputFile.append("Tile Width," + tiles[0].getROI().getBoundsHeight() + "\n")
-
 imageoutputFile.append("Downsample Level,"+imageData.getLevels()[Downsample].getDownsample() + "\n")
 imageoutputFile.append("Downsample Height,"+imageData.getLevels()[Downsample].getHeight() + "\n")
 imageoutputFile.append("Downsample Width,"+imageData.getLevels()[Downsample].getWidth()+ "\n")
@@ -141,12 +139,14 @@ for(i=1;i<classes.length;i++) {
 File outputFile = new File(measurementsPath)
 outputFile.createNewFile()
 
-outputFile.text = "Name,x,y," + String.join(sep,classes) + ",Class"
+outputFile.text = String.join(sep,"Name","x","y","Height","Width,") + String.join(sep,classes) + ",Class"
 
 tiles.each { t ->
    outputFile.append("\n"+t.getName() + sep)
    outputFile.append(t.getROI().getBoundsX() + sep)
    outputFile.append(t.getROI().getBoundsY() + sep)
+   outputFile.append(t.getROI().getBoundsHeight() + sep)
+   outputFile.append(t.getROI().getBoundsWidth() + sep)
    for(tumorclass : classes) {
        outputFile.append(t.getMeasurements()[tumorclass] + sep)
    }

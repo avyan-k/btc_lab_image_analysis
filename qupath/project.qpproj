@@ -1,15 +1,15 @@
 {
-  "version": "0.6.0-rc3",
+  "version": "0.5.1",
   "createTimestamp": 1715350988658,
   "modifyTimestamp": 1715350988658,
-  "uri": "file:/C:/Users/avyan/Documents/btc_lab_image_analysis/qupath/project.qpproj",
-  "lastID": 117,
+  "uri": "file:/home/kavy/Documents/Code/Repos/btc_lab_image_analysis/qupath/project.qpproj",
+  "lastID": 120,
   "images": [
     {
       "serverBuilder": {
         "builderType": "uri",
         "providerClassName": "qupath.lib.images.servers.openslide.OpenslideServerBuilder",
-        "uri": "file:/C:/Users/avyan/Documents/btc_lab_image_analysis/images/DDC_UC_1/raws/AS21057515%20-%202024-05-07%2019.34.42.ndpi",
+        "uri": "file:///home/kavy/Documents/Code/Repos/btc_lab_image_analysis/images/DDC_UC_1/raws/AS21057515%20-%202024-05-07%2019.34.42.ndpi",
         "args": [],
         "metadata": {
           "name": "AS21057515 - 2024-05-07 19.34.42.ndpi",
@@ -103,8 +103,314 @@
         }
       },
       "entryID": 117,
-      "randomizedName": "c0570577-dd76-4a39-9476-a95c2d5a8aa2",
+      "randomizedName": "2e92cdfd-8be7-4a42-9794-bc749b928dfb",
       "imageName": "AS21057515 - 2024-05-07 19.34.42.ndpi",
+      "metadata": {}
+    },
+    {
+      "serverBuilder": {
+        "builderType": "uri",
+        "providerClassName": "qupath.lib.images.servers.openslide.OpenslideServerBuilder",
+        "uri": "file:/home/kavy/Documents/Code/Repos/btc_lab_image_analysis/images/DDC_UC_1/raws/AS22046406%20-%202025-02-10%2012.41.54.ndpi",
+        "args": [],
+        "metadata": {
+          "name": "AS22046406 - 2025-02-10 12.41.54.ndpi",
+          "width": 126720,
+          "height": 80640,
+          "sizeZ": 1,
+          "sizeT": 1,
+          "channelType": "DEFAULT",
+          "isRGB": true,
+          "pixelType": "UINT8",
+          "levels": [
+            {
+              "downsample": 1.0,
+              "width": 126720,
+              "height": 80640
+            },
+            {
+              "downsample": 2.0,
+              "width": 63360,
+              "height": 40320
+            },
+            {
+              "downsample": 4.0,
+              "width": 31680,
+              "height": 20160
+            },
+            {
+              "downsample": 8.0,
+              "width": 15840,
+              "height": 10080
+            },
+            {
+              "downsample": 16.0,
+              "width": 7920,
+              "height": 5040
+            },
+            {
+              "downsample": 32.0,
+              "width": 3960,
+              "height": 2520
+            },
+            {
+              "downsample": 64.0,
+              "width": 1980,
+              "height": 1260
+            },
+            {
+              "downsample": 128.0,
+              "width": 990,
+              "height": 630
+            },
+            {
+              "downsample": 256.0,
+              "width": 495,
+              "height": 315
+            }
+          ],
+          "channels": [
+            {
+              "name": "Red",
+              "color": -65536
+            },
+            {
+              "name": "Green",
+              "color": -16711936
+            },
+            {
+              "name": "Blue",
+              "color": -16776961
+            }
+          ],
+          "pixelCalibration": {
+            "pixelWidth": {
+              "value": 0.22974245870379303,
+              "unit": "µm"
+            },
+            "pixelHeight": {
+              "value": 0.22977941176470587,
+              "unit": "µm"
+            },
+            "zSpacing": {
+              "value": 1.0,
+              "unit": "z-slice"
+            },
+            "timeUnit": "SECONDS",
+            "timepoints": []
+          },
+          "magnification": 40.0,
+          "preferredTileWidth": 3840,
+          "preferredTileHeight": 8
+        }
+      },
+      "entryID": 118,
+      "randomizedName": "05a7fe9f-32b5-446d-b8e7-9566c4041f90",
+      "imageName": "AS22046406 - 2025-02-10 12.41.54.ndpi",
+      "metadata": {}
+    },
+    {
+      "serverBuilder": {
+        "builderType": "uri",
+        "providerClassName": "qupath.lib.images.servers.openslide.OpenslideServerBuilder",
+        "uri": "file:/home/kavy/Documents/Code/Repos/btc_lab_image_analysis/images/DDC_UC_1/raws/AS21048648%20-%202025-02-10%2012.44.42.ndpi",
+        "args": [],
+        "metadata": {
+          "name": "AS21048648 - 2025-02-10 12.44.42.ndpi",
+          "width": 130560,
+          "height": 103680,
+          "sizeZ": 1,
+          "sizeT": 1,
+          "channelType": "DEFAULT",
+          "isRGB": true,
+          "pixelType": "UINT8",
+          "levels": [
+            {
+              "downsample": 1.0,
+              "width": 130560,
+              "height": 103680
+            },
+            {
+              "downsample": 2.0,
+              "width": 65280,
+              "height": 51840
+            },
+            {
+              "downsample": 4.0,
+              "width": 32640,
+              "height": 25920
+            },
+            {
+              "downsample": 8.0,
+              "width": 16320,
+              "height": 12960
+            },
+            {
+              "downsample": 16.0,
+              "width": 8160,
+              "height": 6480
+            },
+            {
+              "downsample": 32.0,
+              "width": 4080,
+              "height": 3240
+            },
+            {
+              "downsample": 64.0,
+              "width": 2040,
+              "height": 1620
+            },
+            {
+              "downsample": 128.0,
+              "width": 1020,
+              "height": 810
+            },
+            {
+              "downsample": 256.0,
+              "width": 510,
+              "height": 405
+            }
+          ],
+          "channels": [
+            {
+              "name": "Red",
+              "color": -65536
+            },
+            {
+              "name": "Green",
+              "color": -16711936
+            },
+            {
+              "name": "Blue",
+              "color": -16776961
+            }
+          ],
+          "pixelCalibration": {
+            "pixelWidth": {
+              "value": 0.22974245870379303,
+              "unit": "µm"
+            },
+            "pixelHeight": {
+              "value": 0.22977941176470587,
+              "unit": "µm"
+            },
+            "zSpacing": {
+              "value": 1.0,
+              "unit": "z-slice"
+            },
+            "timeUnit": "SECONDS",
+            "timepoints": []
+          },
+          "magnification": 40.0,
+          "preferredTileWidth": 3840,
+          "preferredTileHeight": 8
+        }
+      },
+      "entryID": 119,
+      "randomizedName": "42bd1294-c7f7-49a8-b701-81541132a1cc",
+      "imageName": "AS21048648 - 2025-02-10 12.44.42.ndpi",
+      "metadata": {}
+    },
+    {
+      "serverBuilder": {
+        "builderType": "uri",
+        "providerClassName": "qupath.lib.images.servers.openslide.OpenslideServerBuilder",
+        "uri": "file:/home/kavy/Documents/Code/Repos/btc_lab_image_analysis/images/DDC_UC_1/raws/AS16016861%20-%202025-02-10%2012.48.29.ndpi",
+        "args": [],
+        "metadata": {
+          "name": "AS16016861 - 2025-02-10 12.48.29.ndpi",
+          "width": 130560,
+          "height": 99072,
+          "sizeZ": 1,
+          "sizeT": 1,
+          "channelType": "DEFAULT",
+          "isRGB": true,
+          "pixelType": "UINT8",
+          "levels": [
+            {
+              "downsample": 1.0,
+              "width": 130560,
+              "height": 99072
+            },
+            {
+              "downsample": 2.0,
+              "width": 65280,
+              "height": 49536
+            },
+            {
+              "downsample": 4.0,
+              "width": 32640,
+              "height": 24768
+            },
+            {
+              "downsample": 8.0,
+              "width": 16320,
+              "height": 12384
+            },
+            {
+              "downsample": 16.0,
+              "width": 8160,
+              "height": 6192
+            },
+            {
+              "downsample": 32.0,
+              "width": 4080,
+              "height": 3096
+            },
+            {
+              "downsample": 64.0,
+              "width": 2040,
+              "height": 1548
+            },
+            {
+              "downsample": 128.0,
+              "width": 1020,
+              "height": 774
+            },
+            {
+              "downsample": 256.0,
+              "width": 510,
+              "height": 387
+            }
+          ],
+          "channels": [
+            {
+              "name": "Red",
+              "color": -65536
+            },
+            {
+              "name": "Green",
+              "color": -16711936
+            },
+            {
+              "name": "Blue",
+              "color": -16776961
+            }
+          ],
+          "pixelCalibration": {
+            "pixelWidth": {
+              "value": 0.22974245870379303,
+              "unit": "µm"
+            },
+            "pixelHeight": {
+              "value": 0.22977941176470587,
+              "unit": "µm"
+            },
+            "zSpacing": {
+              "value": 1.0,
+              "unit": "z-slice"
+            },
+            "timeUnit": "SECONDS",
+            "timepoints": []
+          },
+          "magnification": 40.0,
+          "preferredTileWidth": 3840,
+          "preferredTileHeight": 8
+        }
+      },
+      "entryID": 120,
+      "randomizedName": "325fbd84-d0ff-498d-90b9-bd9d994a1006",
+      "imageName": "AS16016861 - 2025-02-10 12.48.29.ndpi",
       "metadata": {}
     }
   ]
