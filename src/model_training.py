@@ -283,7 +283,7 @@ if __name__ == "__main__":
     utils.set_seed(seed)
     DEVICE = utils.load_device(seed)
     number_of_epochs = 80
-    k = 3000
+    k = 10000
     batch_size = 128
     proven_mutation_only = False
     normalize = True
