@@ -32,14 +32,14 @@ def generate_heatmap(filepath):
             # print(x,y)
             if tumor_class == "Other":
                 class_colored[
-                    y : y + image_data["Tile Height"] // image_data["Downsample Level"],
-                    x : x + image_data["Tile Width"] // image_data["Downsample Level"],
+                    y : y + int(row["Height"]) // image_data["Downsample Level"],
+                    x : x + int(row["Width"]) // image_data["Downsample Level"],
                     :,
                 ] = color_dict[tumor_colors[row["Class"]]] if row["Class"] != "Other" else 0
             else:
                 measurements[
-                    y : y + image_data["Tile Height"] // image_data["Downsample Level"],
-                    x : x + image_data["Tile Width"] // image_data["Downsample Level"],
+                    y : y + int(row["Height"]) // image_data["Downsample Level"],
+                    x : x + int(row["Width"]) // image_data["Downsample Level"],
                     :,
                 ] = row[tumor_class] * 255.0 
 
@@ -54,7 +54,7 @@ def generate_heatmap(filepath):
         cv.imwrite(
             os.path.join(filepath,"heatmaps",f"heatmap_{tumor_class}.png"), cv.cvtColor(super_imposed_img, cv.COLOR_BGR2RGB)
         )
-    classes = cv.GaussianBlur(class_colored,(17,17),sigmaX=10)
+    classes = cv.GaussianBlur(class_colored,(25,25),sigmaX=100)
     # classes = cv.addWeighted(classes, 0.75, image, 0.5, 0)
     cv.imwrite(
         os.path.join(filepath,"heatmaps","tumor_classes.png"), cv.cvtColor(classes, cv.COLOR_BGR2RGB)
@@ -105,8 +105,8 @@ def display_image(image):
     plt.show()
 
 
-def main(image_name):
-    image_folder = os.path.join(".", "results", "inference")
+def main(image_name,model_name):
+    image_folder = os.path.join(".", "results", "inference",model_name)
     image_file = os.path.join(image_folder, image_name)
     generate_heatmap(image_file)
 
@@ -114,8 +114,10 @@ def main(image_name):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("im", help="Image filename")
+    parser.add_argument("model", help="Model Name")
     args = parser.parse_args()
     config = vars(args)
     image_name = config["im"]
+    model_name = config["model"]
     # image_name = "AS21057515 - 2024-05-07 19.34.42"
-    main(image_name)
+    main(image_name,model_name)
