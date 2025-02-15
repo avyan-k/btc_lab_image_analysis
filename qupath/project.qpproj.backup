@@ -1,15 +1,15 @@
 {
-  "version": "0.5.1",
+  "version": "0.6.0-rc3",
   "createTimestamp": 1715350988658,
   "modifyTimestamp": 1715350988658,
-  "uri": "file:/home/kavy/Documents/Code/Repos/btc_lab_image_analysis/qupath/project.qpproj",
+  "uri": "file:/C:/Users/avyan/Documents/btc_lab_image_analysis/qupath/project.qpproj",
   "lastID": 120,
   "images": [
     {
       "serverBuilder": {
         "builderType": "uri",
         "providerClassName": "qupath.lib.images.servers.openslide.OpenslideServerBuilder",
-        "uri": "file:///home/kavy/Documents/Code/Repos/btc_lab_image_analysis/images/DDC_UC_1/raws/AS21057515%20-%202024-05-07%2019.34.42.ndpi",
+        "uri": "file:///C:/Users/avyan/Documents/btc_lab_image_analysis/images/DDC_UC_1/raws/AS21057515%20-%202024-05-07%2019.34.42.ndpi",
         "args": [],
         "metadata": {
           "name": "AS21057515 - 2024-05-07 19.34.42.ndpi",
@@ -103,7 +103,7 @@
         }
       },
       "entryID": 117,
-      "randomizedName": "2e92cdfd-8be7-4a42-9794-bc749b928dfb",
+      "randomizedName": "2c385625-951e-4671-9a42-8edf799a2295",
       "imageName": "AS21057515 - 2024-05-07 19.34.42.ndpi",
       "metadata": {}
     },
@@ -111,7 +111,7 @@
       "serverBuilder": {
         "builderType": "uri",
         "providerClassName": "qupath.lib.images.servers.openslide.OpenslideServerBuilder",
-        "uri": "file:/home/kavy/Documents/Code/Repos/btc_lab_image_analysis/images/DDC_UC_1/raws/AS22046406%20-%202025-02-10%2012.41.54.ndpi",
+        "uri": "file:///C:/Users/avyan/Documents/btc_lab_image_analysis/images/DDC_UC_1/raws/AS22046406%20-%202025-02-10%2012.41.54.ndpi",
         "args": [],
         "metadata": {
           "name": "AS22046406 - 2025-02-10 12.41.54.ndpi",
@@ -205,7 +205,7 @@
         }
       },
       "entryID": 118,
-      "randomizedName": "05a7fe9f-32b5-446d-b8e7-9566c4041f90",
+      "randomizedName": "89c30600-69fe-4747-830f-85a057048a4d",
       "imageName": "AS22046406 - 2025-02-10 12.41.54.ndpi",
       "metadata": {}
     },
@@ -213,7 +213,7 @@
       "serverBuilder": {
         "builderType": "uri",
         "providerClassName": "qupath.lib.images.servers.openslide.OpenslideServerBuilder",
-        "uri": "file:/home/kavy/Documents/Code/Repos/btc_lab_image_analysis/images/DDC_UC_1/raws/AS21048648%20-%202025-02-10%2012.44.42.ndpi",
+        "uri": "file:///C:/Users/avyan/Documents/btc_lab_image_analysis/images/DDC_UC_1/raws/AS21048648%20-%202025-02-10%2012.44.42.ndpi",
         "args": [],
         "metadata": {
           "name": "AS21048648 - 2025-02-10 12.44.42.ndpi",
@@ -307,7 +307,7 @@
         }
       },
       "entryID": 119,
-      "randomizedName": "42bd1294-c7f7-49a8-b701-81541132a1cc",
+      "randomizedName": "3b3842fe-49be-4f2e-a4b0-8680959bfb68",
       "imageName": "AS21048648 - 2025-02-10 12.44.42.ndpi",
       "metadata": {}
     },
@@ -315,7 +315,7 @@
       "serverBuilder": {
         "builderType": "uri",
         "providerClassName": "qupath.lib.images.servers.openslide.OpenslideServerBuilder",
-        "uri": "file:/home/kavy/Documents/Code/Repos/btc_lab_image_analysis/images/DDC_UC_1/raws/AS16016861%20-%202025-02-10%2012.48.29.ndpi",
+        "uri": "file:///C:/Users/avyan/Documents/btc_lab_image_analysis/images/DDC_UC_1/raws/AS16016861%20-%202025-02-10%2012.48.29.ndpi",
         "args": [],
         "metadata": {
           "name": "AS16016861 - 2025-02-10 12.48.29.ndpi",
@@ -409,7 +409,7 @@
         }
       },
       "entryID": 120,
-      "randomizedName": "325fbd84-d0ff-498d-90b9-bd9d994a1006",
+      "randomizedName": "b9e1710e-47be-4373-a2b3-3c3801979e19",
       "imageName": "AS16016861 - 2025-02-10 12.48.29.ndpi",
       "metadata": {}
     }
