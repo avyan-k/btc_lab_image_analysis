@@ -54,9 +54,9 @@ tiles.each { t ->
         if (maximum.getKey().equals("normal")) {
             t.setColor(ColorTools.packARGB(
             (int) (t.measurements.get("normal")*255.0)+1,
-            143,
-            28,
-            49,
+            255,
+            179,
+            102
             )) //red          
         } 
         else if (maximum.getKey().equals("well_diff")) {
@@ -79,9 +79,9 @@ tiles.each { t ->
     else {
         t.classifications = [belowBaseThresholdClass]
         t.setColor(ColorTools.packARGB(
-        255,
-        255,
-        200,
+        0,
+        0,
+        0,
         0
         )) //yellow
     }

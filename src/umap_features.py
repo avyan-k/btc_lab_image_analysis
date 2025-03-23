@@ -97,9 +97,9 @@ def get_and_save_features_array(
         np.array(torch.cat(features_list, dim=0)),
     )  # convert list of vectors into numpy array
 
-def get_features_array(model,save=False,save_path=None):
+def get_features_array(model, tumor_type, save=False,save_path=None):
     image_loader,classes = ld.load_image_data(
-            batch_size=1000, seed=seed, samples_per_class=-1, tumor_type=tumor_type,normalized=True
+            batch_size=1000, seed=seed, samples_per_class=-1, tumor_type=tumor_type,normalized=False
         )
 
     model = model.to(DEVICE)
@@ -114,7 +114,7 @@ def get_features_array(model,save=False,save_path=None):
                 features_list.append(feature.cpu())
             for annotation in annotations:
                 annotations_list.append(classes[annotation])
-    print("Saving Data")
+    # print("Saving Data")
     # save feature vectors in numpy arrays, REQUIRES FILENAMES
     # if save:
     #     assert save_path is not None
@@ -189,7 +189,7 @@ def generate_umap_annotation(
     features_filename = f"./results/{tumor_type}_features.npz"
     annotation_filename = f"./results/{tumor_type}_annotations.npz"
     if not os.path.isfile(features_filename) or os.path.isfile(annotation_filename):
-        annotations,features_array = get_features_array(model=model)
+        annotations,features_array = get_features_array(model=model, tumor_type=tumor_type)
         np.savez(features_filename,features_array)
         np.savez(annotation_filename,annotations)
     else:
@@ -247,6 +247,7 @@ def generate_umap_annotation(
 
 def generate_umap_from_dataset(
     tumor_type, 
+    model,
     seed, 
     sample=False, 
     sample_size=-1, 
@@ -281,7 +282,6 @@ def generate_umap_from_dataset(
     assert os.path.isdir(image_directory)  # TODO change to expection throwing
 
     # Set up parameters
-    batch_size = 300  # tested to be optimal at 100 batches, should be changed manually
     size_of_image_dataset = ld.get_size_of_dataset(image_directory, extension="jpg")
     # size_of_feature_dataset = ld.get_size_of_dataset(feature_directory, extension="npz")
 
@@ -334,11 +334,7 @@ def generate_umap_from_dataset(
 
     return umap_embeddings
 
-
-if __name__ == "__main__":
-    seed = 99
-    DEVICE = utils.load_device(seed)
-    # generate_umap_from_dataset(tumor_type="SCCOHT_1", seed = seed,model_type="VGG16",sample=False, sample_size = 1000, plot=True)
+def main():
     for tumor_type in reversed(os.listdir("./images")):
         if tumor_type not in ["DDC_UC_1"]:
             continue
@@ -349,10 +345,17 @@ if __name__ == "__main__":
         print(tumor_type)
         generate_umap_from_dataset(
             tumor_type=tumor_type,
+            model=model,
             seed=seed,
             sample=False,
             plot=True
         )
+
+if __name__ == "__main__":
+    seed = 99
+    DEVICE = utils.load_device(seed)
+    # generate_umap_from_dataset(tumor_type="SCCOHT_1", seed = seed,model_type="VGG16",sample=False, sample_size = 1000, plot=True)
+    
 
     # # Set up parameters
     # run_id = f"{utils.get_time()[:10]}"
