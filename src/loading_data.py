@@ -117,12 +117,12 @@ def get_image_dataset(tumor_type,seed,samples_per_class = -1, normalized = True,
             ])
     if samples_per_class == "all":
         if proven_mutation:
-            proven_mutation = get_proven_mutation_caes(tumor_type)
+            proven_mutation = get_proven_mutation_cases(tumor_type)
             return TumorImageDataset(root=image_directory, transform=processing_transforms, cases=proven_mutation)
         return TumorImageDataset(root=image_directory, transform=processing_transforms)
     else:
         if proven_mutation:
-            proven_mutation = get_proven_mutation_caes(tumor_type)
+            proven_mutation = get_proven_mutation_cases(tumor_type)
             return BalancedTumorImageData(
                 image_directory, k=samples_per_class, transform=processing_transforms, cases=proven_mutation
             )
@@ -428,7 +428,7 @@ def split_all_images(tumor_type, norm=False):
                 os.remove(image_full_path)
 
 
-def get_proven_mutation_caes(tumor_type):    
+def get_proven_mutation_cases(tumor_type):    
     proven_mutations = []
     with open(f"./images/{tumor_type}/proven_mutation.txt") as f:
         for line in f:
@@ -528,18 +528,24 @@ def get_mean_std_per_channel(image_directory,tumor_type,samples_per_class,seed,s
         FileNotFoundError,
     ):  # if the file does not exist, load dataset without transforming and compute mean and stf
         if samples_per_class == "all":
-            dataset = datasets.ImageFolder(
-                root=image_directory, transform=transforms.ToTensor()
-            )
-            k = len(dataset)
+            if proven_mutation:
+                proven_mutation = get_proven_mutation_cases(tumor_type)
+                dataset = TumorImageDataset(root=image_directory, transform=transforms.ToTensor(), cases=proven_mutation)
+            dataset = TumorImageDataset(root=image_directory, transform=transforms.ToTensor())
         else:
+            if proven_mutation:
+                proven_mutation = get_proven_mutation_cases(tumor_type)
+                dataset = BalancedTumorImageData(
+                    image_directory, k=samples_per_class, transform=transforms.ToTensor(), cases=proven_mutation
+                )
             dataset = BalancedTumorImageData(
                 image_directory, k=samples_per_class, transform=transforms.ToTensor()
             )
-            k = samples_per_class
+        k = len(dataset)
         means, stds = compute_and_save_mean_std_per_channel(
             dataset=dataset, path=mean_std_path, seed=seed, k=k
         )
+    print(mean_std_path)
     return means,stds
 
 

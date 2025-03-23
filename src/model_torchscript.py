@@ -29,7 +29,7 @@ def get_torchscript_resnet_tumor(tumor_type, weight_path):
     return traced_resnet_classifier
 
 
-def generate_config_json_resnettumor(tumor_type):
+def generate_config_json_resnettumor(tumor_type,means,stds):
     classes = ld.get_annotation_classes(tumor_type)
     dictionnary = {
         "spec_version": "1.0",
@@ -45,8 +45,8 @@ def generate_config_json_resnettumor(tumor_type):
             {
                 "name": "Normalize",
                 "arguments": {
-                    "mean": [0.485, 0.456, 0.406],
-                    "std": [0.229, 0.224, 0.225],
+                    "mean": f"{means}",
+                    "std": f"{stds}",
                 },
             },
         ],
@@ -54,43 +54,41 @@ def generate_config_json_resnettumor(tumor_type):
     return json.dumps(dictionnary, indent=4)
 
 
-def save_resnettumor_model(path, config, model_path):
+def save_resnettumor_model(model, config, model_path):
     Path(model_path).mkdir(parents=True, exist_ok=True)
     torch.jit.save(
-        traced_resnet_classifier, os.path.join(model_path, "torchscript_model.pt")
+        model, os.path.join(model_path, "torchscript_model.pt")
     )
     with open(os.path.join(model_path, "config.json"), "w") as f:
         f.write(config)
     return
 
+def main(weight_path, tumor_type,normalized = False,proven_mutation=False):
+    image_directory = Path(f"./images/{tumor_type}/images")
+    if not os.path.isfile(weight_path):
+        raise FileNotFoundError(f"Cannot find weights {weight_path} to load")
+    traced_resnet_classifier = get_torchscript_resnet_tumor(
+        tumor_type, weight_path
+    )
+    model_type = os.path.basename(os.path.splitext(weight_path)[0])
+    samples_per_class = int(model_type.split("-")[1])
+    means,stds = ld.get_mean_std_per_channel(image_directory,tumor_type,samples_per_class,seed,normalized,proven_mutation)
+    config = generate_config_json_resnettumor(tumor_type,means,stds)
+    model_path = (
+        f"./results/training/torchscript_models/ResNet_Tumor/{model_type}/"
+    )
+    # print(model_path)
+    save_resnettumor_model(traced_resnet_classifier, config, model_path)
 
 if __name__ == "__main__":
     print(torch.__version__)
     seed = 99
     utils.set_seed(seed)
-    samples_per_case = 10000
+    tumor_type = "DDC_UC_1"
+    main(f"./results/training/models/ResNet_Tumor/{tumor_type}-10000-Normalized.pt",tumor_type,True)
+    main(f"./results/training/models/ResNet_Tumor/{tumor_type}-3000-Normalized.pt",tumor_type,True,True)
 
-    for tumor_type in os.listdir("./images"):
-        print(tumor_type)
-        if tumor_type not in ["DDC_UC_1"]:
-            continue
-        norm_weight_path = f"./results/training/models/ResNet_Tumor/{tumor_type}-{samples_per_case}-Normalized.pt"
-        unnorm_weight_path = f"./results/training/models/ResNet_Tumor/{tumor_type}-{samples_per_case}-Unnormalized.pt"
-        path2 = "./results/training/models/ResNet_Tumor/DDC_UC_1-3000-Normalized.pt"
-        paths = [norm_weight_path,path2]
-        for weight_path in paths:
-            if not os.path.isfile(weight_path):
-                raise FileNotFoundError(f"Cannot find weights {weight_path} to load")
-            traced_resnet_classifier = get_torchscript_resnet_tumor(
-                tumor_type, weight_path
-            )
-            config = generate_config_json_resnettumor(tumor_type)
-            model_type = os.path.basename(os.path.splitext(weight_path)[0])
-            model_path = (
-                f"./results/training/torchscript_models/ResNet_Tumor/{model_type}/"
-            )
-            print(model_path)
-            save_resnettumor_model(traced_resnet_classifier, config, model_path)
+
 
     # _,transforms = ld.setup_resnet_model(seed)
     # format_string = str(transforms.__repr__)

@@ -99,7 +99,7 @@ def get_and_save_features_array(
 
 def get_features_array(model, tumor_type, save=False,save_path=None):
     image_loader,classes = ld.load_image_data(
-            batch_size=1000, seed=seed, samples_per_class=-1, tumor_type=tumor_type,normalized=False
+            batch_size=100, seed=seed, samples_per_class=-1, tumor_type=tumor_type,normalized=False
         )
 
     model = model.to(DEVICE)
@@ -340,7 +340,7 @@ def main():
             continue
         print(len(os.listdir(f"./images/{tumor_type}/images")))
         model = md.ResNet_Tumor(classes=len(os.listdir(f"./images/{tumor_type}/images"))-1)
-        model.load_state_dict(torch.load(f"./results/training/models/ResNet_Tumor/k=3000/{tumor_type}/epochs=80-lr=0.001-seed=99.pt"))
+        model.load_state_dict(torch.load(f"./results/training/models/ResNet_Tumor/k=10000_normalized/{tumor_type}/epochs=80-lr=0.001-seed=99.pt"))
         model.fc = torch.nn.Identity()
         print(tumor_type)
         generate_umap_from_dataset(
@@ -354,6 +354,7 @@ def main():
 if __name__ == "__main__":
     seed = 99
     DEVICE = utils.load_device(seed)
+    main()
     # generate_umap_from_dataset(tumor_type="SCCOHT_1", seed = seed,model_type="VGG16",sample=False, sample_size = 1000, plot=True)
     
 
