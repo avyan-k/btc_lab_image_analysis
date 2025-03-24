@@ -572,7 +572,7 @@ def compute_and_save_mean_std_per_channel(dataset, path, seed, k=-1):
     with open(path, "w") as f:
         f.write(" ".join([str(float(mean)) for mean in means]) + "\n")
         f.write(" ".join([str(float(mean)) for mean in means]))
-    return means, stds
+    return means.tolist(), stds.tolist()
 
 
 def count_dict_tensor(count_dict: dict):

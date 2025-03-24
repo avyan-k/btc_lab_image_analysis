@@ -23,7 +23,7 @@ def generate_heatmap(filepath):
         for i, tumor_class in enumerate(tumor_classes)
     }
     os.makedirs(os.path.join(filepath,"heatmaps"),exist_ok=True)
-    class_colored = np.ones_like(image)
+    classes = np.ones_like(image)
     for tumor_class in tumor_classes:
         measurements = np.zeros_like(image)
         for _, row in tile_measurements.iterrows():
@@ -31,7 +31,7 @@ def generate_heatmap(filepath):
             y = max(int(row["y"] // image_data["Downsample Level"]), 0)
             # print(x,y)
             if tumor_class == "Other":
-                class_colored[
+                classes[
                     y : y + int(row["Height"]) // image_data["Downsample Level"],
                     x : x + int(row["Width"]) // image_data["Downsample Level"],
                     :,
@@ -54,7 +54,7 @@ def generate_heatmap(filepath):
         cv.imwrite(
             os.path.join(filepath,"heatmaps",f"heatmap_{tumor_class}.png"), cv.cvtColor(super_imposed_img, cv.COLOR_BGR2RGB)
         )
-    classes = cv.GaussianBlur(class_colored,(25,25),sigmaX=100)
+    # classes = cv.GaussianBlur(classes,(25,25),sigmaX=100)
     # classes = cv.addWeighted(classes, 0.75, image, 0.5, 0)
     cv.imwrite(
         os.path.join(filepath,"heatmaps","tumor_classes.png"), cv.cvtColor(classes, cv.COLOR_BGR2RGB)
