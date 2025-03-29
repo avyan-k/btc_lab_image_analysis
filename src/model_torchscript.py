@@ -45,8 +45,8 @@ def generate_config_json_resnettumor(tumor_type,means,stds):
             {
                 "name": "Normalize",
                 "arguments": {
-                    "mean": f"{means}",
-                    "std": f"{stds}",
+                    "mean": means,
+                    "std": stds,
                 },
             },
         ],

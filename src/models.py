@@ -13,10 +13,10 @@ from torchinfo import summary
 
 import utils
 
-
+"""Custom ResNet Model"""
 class Tumor_Classifier(nn.Module):
     def __init__(
-        self, layers, neurons_per_layer, dropout=0.5, input_neurons=1000, classes=2
+        self, input_neurons, classes, layers=1, neurons_per_layer=500, dropout=0.5
     ):
         super(Tumor_Classifier, self).__init__()
         self.dropout = dropout
@@ -44,13 +44,7 @@ class ResNet_Tumor(nn.Module):
     def __init__(self, classes=2, feature_classifier=None):
         super(ResNet_Tumor, self).__init__()
         if feature_classifier is None:
-            self.fc = Tumor_Classifier(
-                layers=1,
-                neurons_per_layer=500,
-                dropout=0.5,
-                input_neurons=1000,
-                classes=classes,
-            )
+            self.fc = Tumor_Classifier(input_neurons=1000,classes=classes)
         else:
             self.fc = feature_classifier
         self.resnet = timm.create_model("resnet18", pretrained=False)
@@ -60,20 +54,16 @@ class ResNet_Tumor(nn.Module):
         x = self.fc(x)
         return x
 
+"""UNI Model"""
 class UNI_Tumor(nn.Module):
     def __init__(self, classes=2, feature_classifier=None, pretrained = False):
         super(UNI_Tumor, self).__init__()
         if feature_classifier is None:
-            self.fc = Tumor_Classifier(
-                layers=5,
-                neurons_per_layer=500,
-                dropout=0,
-                input_neurons=1024,
-                classes=classes,
-            )
+            self.fc = Tumor_Classifier(input_neurons=1024,classes=classes)
         else:
             self.fc = feature_classifier
         self.uni, _ = get_encoder(enc_name="uni",device="cpu")
+        assert self.uni is not None
         if pretrained:
             load_uni_pretrained_weights(self.uni)
             for parameter in self.uni.parameters():
@@ -99,7 +89,6 @@ def load_uni_pretrained_weights(model,strict=True):
         model.load_state_dict(torch.load(os.path.join(local_dir, "pytorch_model.bin")), strict=strict)
     except FileNotFoundError:
         download_UNI_model_weights()
-
 
 def download_UNI_model_weights():
     try:

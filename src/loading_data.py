@@ -90,10 +90,8 @@ def get_image_dataset(tumor_type,seed,samples_per_class = -1, normalized = True,
     If normalized is set to true, the mean and standard deviation of the dataset have been computed and saved, they are loaded from the file. Otherwise, they are computed and saved to the file. 
     If stain_normalized is set to true, the images are loaded from the normalized_images directory.
     '''
+    image_directory = get_image_directory(tumor_type,stain_normalized=stain_normalized)
 
-    image_directory = f"./images/{tumor_type}/images"
-    if stain_normalized:
-        image_directory = f"./images/{tumor_type}/normalized_images"
     print(f"\nLoading images from: {image_directory}")
     if samples_per_class == -1:
         samples_per_class = "all"
@@ -106,7 +104,7 @@ def get_image_dataset(tumor_type,seed,samples_per_class = -1, normalized = True,
         ]
     )
     if normalized:
-        means,stds = get_mean_std_per_channel(image_directory,tumor_type,samples_per_class,seed,stain_normalized)
+        means,stds = get_mean_std_per_channel(tumor_type,samples_per_class,seed,stain_normalized)
         print(f"Dataset mean for RGB channels: {means}")
         print(f"Dataset standard deviation for RGB channels: {stds}")
         processing_transforms = transforms.Compose(
@@ -238,14 +236,14 @@ def load_image_data(
     batch_size,     
     tumor_type,
     seed,
+    normalized,
+    stain_normalize,
     samples_per_class=-1,
-    normalized=True,
-
 ):
     '''
     Same as load_training_image_data but a single loader is returned with the entire dataset, along with a list of class names
     '''
-    full_dataset = get_image_dataset(tumor_type=tumor_type,seed=seed,samples_per_class=samples_per_class,normalized=normalized)
+    full_dataset = get_image_dataset(tumor_type=tumor_type,seed=seed,samples_per_class=samples_per_class,normalized=normalized,stain_normalized=stain_normalize)
 
     loader = DataLoader(
         full_dataset,
@@ -271,16 +269,13 @@ def load_training_image_data_by_case(
     '''
     Same as load_training_image_data but the algorithm will attempt to balance the dataset by case such that each class has the same number of cases
     '''
-    image_directory = f"./images/{tumor_type}/images"
-    if normalized:
-        image_directory = f"./images/{tumor_type}/normalized_images"
+    image_directory = get_image_directory(tumor_type,stain_normalized=normalized)
     print(f"\nLoading images from: {image_directory}")
 
     transforms = v2.Compose(
-        [v2.RandomAffine(degrees=15, translate=(0.15, 0.15)), transforms]
-    ) if transforms is not None else v2.RandomAffine(degrees=15, translate=(0.15, 0.15))
-    # get full data set
-    # full_train_dataset = datasets.ImageFolder(image_directory,transform=transforms)
+        [v2.RandomAffine(degrees=(-15,15), translate=(0.15, 0.15)), transforms]
+    ) if transforms is not None else v2.RandomAffine(degrees=(-15,15), translate=(0.15, 0.15))
+
     total_size = get_size_of_dataset(
         image_directory, "jpg"
     )  # compute total size of dataset
@@ -367,19 +362,21 @@ def get_size_of_dataset(directory, extension):
 
 
 def get_annotation_classes(tumor_type):
-    image_directory = f"./images/{tumor_type}/images"
     return [
         name
-        for name in os.listdir(image_directory)
+        for name in os.listdir(get_image_directory(tumor_type))
         if name not in [".DS_Store", "__MACOSX"]
     ]
 
+def get_image_directory(tumor_type,stain_normalized = False):
+    image_directory = f"./images/{tumor_type}/images" if not stain_normalized else f"./images/{tumor_type}/normalized_images"
+    if not os.path.isdir(image_directory):
+        raise FileNotFoundError("Unable to find image folder", image_directory)
+    return image_directory
 
 def check_for_unopenable_files(tumor_type, norm=False):
-    if norm:
-        image_directory = f"./images/{tumor_type}/normalized_images"
-    else:
-        image_directory = f"./images/{tumor_type}/images"
+    image_directory = get_image_directory(tumor_type,norm)
+    
     with open(file=f"./results/{tumor_type}_corrupted_files.txt", mode="w") as f:
         time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         f.write(f"Checked on {time}\n")
@@ -398,10 +395,8 @@ def split_all_images(tumor_type, norm=False):
     """
     Splits all 512 x 512 image into 4 256 x 256 tiles, saves them and deletes original
     """
-    if norm:
-        image_directory = f"./images/{tumor_type}/normalized_images"
-    else:
-        image_directory = f"./images/{tumor_type}/images"
+    image_directory = get_image_directory(tumor_type,norm)
+
     for annotation in os.listdir(image_directory):
         if annotation in [".DS_Store", "__MACOSX"]:
             continue
@@ -434,6 +429,7 @@ def get_proven_mutation_cases(tumor_type):
         for line in f:
             proven_mutations.append(''.join(line.strip().split('-')))
     return proven_mutations
+
 def get_balanced_train_test_cases(total_size,test_ratio,image_directory):
     cases = {k: len(v) for k, v in find_cases(image_directory).items()}
     label_sets = []
@@ -507,10 +503,11 @@ def find_cases(image_directory):
     }
     return case_dict
 
-def get_mean_std_per_channel(image_directory,tumor_type,samples_per_class,seed,stain_normalized=False,proven_mutation = False):
+def get_mean_std_per_channel(tumor_type,samples_per_class,seed,stain_normalized=False,proven_mutation = False):
     '''
     Loads mean and standard deviation of the dataset from a file if it exists, otherwise loads dataset at image_directory and computes mean and standard deviation
     '''
+    image_directory = get_image_directory(tumor_type,stain_normalized=stain_normalized)
     mean_std_path = (
         f"./results/training/{tumor_type}-k={samples_per_class}-seed={seed}"
     )
@@ -601,8 +598,6 @@ if __name__ == "__main__":
         print(tumor_type)
         if tumor_type not in ["DDC_UC_1"]:
             continue
-        image_directory = f"./images/{tumor_type}/images"
-
         # for annotation in os.listdir(image_directory):
         #     print(tumor_type[0].lower() + annotation[0])
         #     if annotation in [".DS_Store", "__MACOSX"]:
