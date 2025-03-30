@@ -10,13 +10,8 @@ import loading_data as ld
 
 def get_torchscript_resnet_tumor(tumor_type, weight_path):
     classes = ld.get_annotation_classes(tumor_type)
-    feature_classifier = md.Tumor_Classifier(
-        layers=1,
-        neurons_per_layer=500,
-        dropout=0.5,
-        input_neurons=1000,
-        classes=len(classes),
-    )
+    feature_classifier = md.Tumor_Classifier(input_neurons=1000,apply_softmax=False,classes=len(classes))
+
     traced_feature_classifier = torch.jit.script(feature_classifier)
     resnet_classifier = md.ResNet_Tumor(
         classes=len(classes), feature_classifier=traced_feature_classifier
@@ -63,7 +58,7 @@ def save_resnettumor_model(model, config, model_path):
         f.write(config)
     return
 
-def main(weight_path, tumor_type,normalized = False,proven_mutation=False):
+def main(weight_path, tumor_type,normalized,proven_mutation):
     image_directory = Path(f"./images/{tumor_type}/images")
     if not os.path.isfile(weight_path):
         raise FileNotFoundError(f"Cannot find weights {weight_path} to load")
@@ -72,7 +67,7 @@ def main(weight_path, tumor_type,normalized = False,proven_mutation=False):
     )
     model_type = os.path.basename(os.path.splitext(weight_path)[0])
     samples_per_class = int(model_type.split("-")[1])
-    means,stds = ld.get_mean_std_per_channel(image_directory,tumor_type,samples_per_class,seed,normalized,proven_mutation)
+    means,stds = ld.get_mean_std_per_channel(tumor_type,samples_per_class=samples_per_class,seed=seed,stain_normalized=normalized,proven_mutation=proven_mutation)
     config = generate_config_json_resnettumor(tumor_type,means,stds)
     model_path = (
         f"./results/training/torchscript_models/ResNet_Tumor/{model_type}/"
@@ -81,12 +76,13 @@ def main(weight_path, tumor_type,normalized = False,proven_mutation=False):
     save_resnettumor_model(traced_resnet_classifier, config, model_path)
 
 if __name__ == "__main__":
-    print(torch.__version__)
     seed = 99
     utils.set_seed(seed)
     tumor_type = "DDC_UC_1"
-    main(f"./results/training/models/ResNet_Tumor/{tumor_type}-10000-Normalized.pt",tumor_type,True)
-    main(f"./results/training/models/ResNet_Tumor/{tumor_type}-3000-Normalized.pt",tumor_type,True,True)
+    main(f"./results/training/models/ResNet_Tumor/{tumor_type}-10000-Normalized.pt",tumor_type,False,False)
+    main(f"./results/training/models/ResNet_Tumor/{tumor_type}-3000-Normalized.pt",tumor_type,False,True)
+
+
 
 
 

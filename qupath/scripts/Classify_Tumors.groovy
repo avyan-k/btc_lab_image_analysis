@@ -4,7 +4,9 @@ import ai.djl.util.Utils
 import ai.djl.pytorch.jni.LibUtils
 import ai.djl.util.cuda.CudaUtils
 import qupath.ext.wsinfer.WSInfer
-
+import qupath.ext.wsinfer.ui.WSInferPrefs
+import org.slf4j.LoggerFactory
+import qupath.ext.wsinfer.ProgressLogger
 String fs = System.getProperty("file.separator")
 // Setting Path for loading extensions
 
@@ -38,13 +40,18 @@ selectAnnotations();
 runPlugin('qupath.lib.algorithms.TilerPlugin', '{"tileSizeMicrons":117.6064,"trimToROI":true,"makeAnnotations":false,"removeParentAnnotation":false}')
 
 selectTiles();
-import qupath.ext.wsinfer.ui.WSInferPrefs
+
 // Set parallel tile loaders
 WSInferPrefs.numWorkersProperty().setValue(16);
 // Set batch size
 WSInferPrefs.batchSizeProperty().setValue(64);
-println(WSInferPrefs.batchSizeProperty().getValue())
-qupath.ext.wsinfer.WSInfer.runInference(modelName)
+// println(WSInferPrefs.batchSizeProperty().getValue());
+qupath.ext.wsinfer.WSInfer.runInference(
+    getCurrentImageData(),
+    qupath.ext.wsinfer.WSInfer.loadModel(modelName),
+    new ProgressLogger(LoggerFactory.getLogger(WSInfer.class)),
+    false // REMOVE THIS LAST FIELD IF NOT PR SNAPSHOT VERSION
+)
 
 def tiles = getTileObjects()
 tiles.each { t ->
