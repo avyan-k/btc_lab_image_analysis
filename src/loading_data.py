@@ -371,7 +371,7 @@ def get_annotation_classes(tumor_type):
 def get_image_directory(tumor_type,stain_normalized = False):
     image_directory = f"./images/{tumor_type}/images" if not stain_normalized else f"./images/{tumor_type}/normalized_images"
     if not os.path.isdir(image_directory):
-        raise FileNotFoundError("Unable to find image folder", image_directory)
+        raise FileNotFoundError(f"Unable to find image folder {image_directory}")
     return image_directory
 
 def check_for_unopenable_files(tumor_type, norm=False):
@@ -542,7 +542,6 @@ def get_mean_std_per_channel(tumor_type,samples_per_class,seed,stain_normalized=
         means, stds = compute_and_save_mean_std_per_channel(
             dataset=dataset, path=mean_std_path, seed=seed, k=k
         )
-    print(mean_std_path)
     return means,stds
 
 

@@ -59,7 +59,7 @@ def get_features_array(model, tumor_type,stain_normalized, sample, sample_size=-
     # get features for images in image_loader
     if not os.path.isfile(features_filename) or not os.path.isfile(annotation_filename):
         image_loader,classes = ld.load_image_data(
-            batch_size=100, seed=seed, samples_per_class=sample_size if sample else -1, tumor_type=tumor_type,normalized=True,stain_normalize=stain_normalized
+            batch_size=1000, seed=seed, samples_per_class=sample_size if sample else -1, tumor_type=tumor_type,normalized=True,stain_normalize=stain_normalized
         )
 
         model = model.to(DEVICE)
@@ -76,6 +76,8 @@ def get_features_array(model, tumor_type,stain_normalized, sample, sample_size=-
                     annotations_list.append(classes[annotation])
         features_array = np.array(features_list)
         annotations_array = np.array(annotations_list)
+        np.savez(features_filename,features_array)
+        np.savez(annotation_filename,annotations_array)
     else:
         features_array = np.load(features_filename)["arr_0"]
         annotations_array = np.load(annotation_filename)["arr_0"]
