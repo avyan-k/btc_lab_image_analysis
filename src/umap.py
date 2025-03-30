@@ -168,9 +168,7 @@ def main(stain_normalized = False):
         if tumor_type not in ["DDC_UC_1"]:
             continue
 
-        model = md.ResNet_Tumor(classes=len(os.listdir(f"./images/{tumor_type}/images")))
-        model.load_state_dict(torch.load(f"./results/training/models/ResNet_Tumor/k=10000_normalized/{tumor_type}/epochs=80-lr=0.001-seed=99.pt"))
-        model.fc = torch.nn.Identity()
+        model = md.get_resnet_model()
         annotations, model_features = get_features_array(model,tumor_type,stain_normalized=stain_normalized,sample=False)
         pca_features = get_PCA_embeddings(model_features)
         umap_embeddings = generate_umap_annotation(pca_features)
