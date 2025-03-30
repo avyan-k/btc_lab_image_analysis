@@ -34,9 +34,9 @@ import torch
 
 # from torchvision.models import ResNet50_Weights
 from sklearn.decomposition import PCA
-import umap.umap_ as umap
+import umap
+import umap.plot
 import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D
 from pathlib import Path
 from tqdm import tqdm
 
@@ -53,8 +53,8 @@ def get_features_array(model, tumor_type,stain_normalized, sample, sample_size=-
     size_of_image_dataset = ld.get_size_of_dataset(image_directory, extension="jpg")
     sample_size = size_of_image_dataset if not sample else sample_size
     assert sample_size > 0
-    features_filename = f"./results/{tumor_type}_{'normalized' if stain_normalized else ''}_{type(model).__name__}_features.npz"
-    annotation_filename = f"./results/{tumor_type}_{'normalized' if stain_normalized else ''}_{type(model).__name__}_annotations.npz"
+    features_filename = f"./results/{tumor_type}{'_normalized_' if stain_normalized else '_'}{type(model).__name__}_features.npz"
+    annotation_filename = f"./results/{tumor_type}{'_normalized_' if stain_normalized else '_'}{type(model).__name__}_annotations.npz"
 
     # get features for images in image_loader
     if not os.path.isfile(features_filename) or not os.path.isfile(annotation_filename):
@@ -71,7 +71,7 @@ def get_features_array(model, tumor_type,stain_normalized, sample, sample_size=-
                 images = images.to(DEVICE)
                 features = model(images)
                 for feature in features:
-                    features_list.append(feature.cpu())
+                    features_list.append(feature.cpu().numpy())
                 for annotation in annotations:
                     annotations_list.append(classes[annotation])
         features_array = np.array(features_list)
@@ -100,13 +100,28 @@ def get_PCA_embeddings(features, output_dimension = 100):
     return pca.fit_transform(scaled_features)
 
 """UMAP GENERATION - COLORING BASED ON ANNOTATIONS"""
-def generate_umap_annotation(pca, neighbours = 15,minimum_distance = 0.1):
+def fit_umap_to_pca(pca, neighbours = 15,minimum_distance = 0.1):
 
     # UMAP dimension reduction on normalized features_array and coloring by annotations
-    print(f"Started generating UMAP for the {pca.shape[1]} features of {pca.shape[0]} images at {utils.get_time()}")
+    print(f"Started fitting UMAP on the {pca.shape[1]} features of {pca.shape[0]} images at {utils.get_time()}")
 
     features_scaled = standardize(pca)
-    umap_model = umap.UMAP(
+    umap_model = umap.umap_.UMAP(
+        n_neighbors=neighbours, min_dist=minimum_distance, metric="euclidean"
+    )
+
+    umap_model.fit(features_scaled)
+
+    # Mapping annotations to colors
+    return umap_model
+
+def generate_umap_embeddings(pca, neighbours = 15,minimum_distance = 0.1):
+
+    # UMAP dimension reduction on normalized features_array and coloring by annotations
+    print(f"Started generating UMAP embeddings for the {pca.shape[1]} features of {pca.shape[0]} images at {utils.get_time()}")
+
+    features_scaled = standardize(pca)
+    umap_model = umap.umap_.UMAP(
         n_neighbors=neighbours, min_dist=minimum_distance, metric="euclidean"
     )
 
@@ -117,53 +132,19 @@ def generate_umap_annotation(pca, neighbours = 15,minimum_distance = 0.1):
     print(f"\ndim of umap_embedding:\t{umap_embedding.shape}\n")
 
     # Mapping annotations to colors
-    return umap_embedding
+    return umap_model,umap_embedding
 
-def plot_umap(umap_embedding,annotations,tumor_type):
-    results_directory = "./results/normalized_umap"
-    Path(os.path.join(results_directory)).mkdir(
-            parents=True, exist_ok=True
-    )  # results directory for this file
-    
-    sample_size = umap_embedding.shape[0]
-    umap_annotation_file = f"umap_{tumor_type}_{sample_size}_annotations.png"  # filename
-    umap_annotation_output_path = os.path.join(
-            results_directory, umap_annotation_file
-    )  # file path
-
-    annotation_colors = (
-        {"normal": "blue", "undiff": "red", "well_diff": "green"}
-        if "DDC_UC" in tumor_type
-        else {"normal": "blue", "tumor": "red"}
-    )  # says which color to associate to the annotations of each file
-    colors = [annotation_colors[annotation] for annotation in annotations]
+def plot_umap(umap_model,annotations,tumor_type, save_path):
 
     # Generating figure
-    plt.figure(figsize=(10, 8))
-    plt.scatter(
-        umap_embedding[:, 0], umap_embedding[:, 1], c=colors, s=5, alpha=0.7
-    )  # type: ignore
-
-    # legend
-    handles = [
-        Line2D(
-            [0], [0], marker="o", color="w", markerfacecolor=color, markersize=10
-        )
-        for color in ["blue", "red", "green"]
-    ]
-    legend_labels = (
-        ["normal", "undiff", "well_diff"]
-        if "DDC_UC" in tumor_type
-        else ["normal", "tumor"]
-    )
-    plt.legend(handles, legend_labels, title="Annotations")
-
+    plt.figure()
+    umap.plot.points(umap_model, labels=annotations, theme='fire')
     plt.title(f"{tumor_type} UMAP Projection")
     plt.xlabel("UMAP Dimension 1")
     plt.ylabel("UMAP Dimension 2")
-    plt.savefig(umap_annotation_output_path)
+    plt.savefig(save_path)
     plt.show()
-    print(f"UMAP plot saved in {umap_annotation_output_path}")
+    print(f"UMAP plot saved in {save_path}")
 
 def main(stain_normalized = False):
     for tumor_type in reversed(os.listdir("./images")):
@@ -171,11 +152,20 @@ def main(stain_normalized = False):
             continue
 
         model = md.get_resnet_model()
+        # model = md.ResNet_Tumor(classes=len(os.listdir(f"./images/{tumor_type}/images")))
+        # model.load_state_dict(torch.load(f"./results/training/models/ResNet_Tumor/k=10000_normalized/{tumor_type}/epochs=80-lr=0.001-seed=99.pt"))
+        # model.fc = torch.nn.Identity()
         annotations, model_features = get_features_array(model,tumor_type,stain_normalized=stain_normalized,sample=False)
         pca_features = get_PCA_embeddings(model_features)
-        umap_embeddings = generate_umap_annotation(pca_features)
+        fitted_umap = fit_umap_to_pca(pca_features)
 
-        plot_umap(umap_embeddings,annotations,tumor_type)
+        results_directory = "./results/normalized_umap"
+        Path(os.path.join(results_directory)).mkdir(
+                parents=True, exist_ok=True
+        ) 
+        plot_file = f"umap_{tumor_type}_{model_features.shape[0]}{'_normalized_' if stain_normalized else '_'}{type(model).__name__}_annotations.png"  # filename
+        plot_path = os.path.join(results_directory, plot_file)  # file path
+        plot_umap(fitted_umap,annotations,tumor_type,plot_path)
         print(f"\nUMAP generation completed at {utils.get_time()}")
 
 
