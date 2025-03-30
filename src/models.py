@@ -117,14 +117,20 @@ def download_UNI_model_weights():
     hf_hub_download("MahmoodLab/UNI", filename="pytorch_model.bin", local_dir=model_dir, force_download=True)
 
 """Pre-Trained Model"""
-def get_resnet_model():
+def get_resnet50_model():
     model = torchmodels.resnet50(weights=torchmodels.ResNet50_Weights.DEFAULT)
+    model.eval()
+    return model
+
+def get_resnet18_model():
+    model = torchmodels.resnet18(weights=torchmodels.ResNet18_Weights.DEFAULT)
     model.eval()
     return model
 
 def get_VGG16_model():
     model = torchmodels.vgg16(weights=torchmodels.VGG16_Weights.DEFAULT)
     model.eval()
+    model.classifier = nn.Identity()
     return model
 
 if __name__ == "__main__":
