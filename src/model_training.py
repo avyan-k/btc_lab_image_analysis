@@ -18,7 +18,7 @@ import models as md
 
 
 def train_model(
-    model,
+    model:nn.Module,
     tumor_type,
     seed,
     input_shape,
@@ -122,10 +122,17 @@ def train_model(
                 break       
     plot_losses(losses, num_epochs, save_path)
     plot_accuracies(accuracies, num_epochs, save_path)
-    torch.save(
-        model.state_dict(),
-        os.path.join(save_path, f"epochs={num_epochs}-lr={learning_rate}-seed={seed}.pt"),
-    )
+    model_save_path = os.path.join(save_path, f"epochs={num_epochs}-lr={learning_rate}-seed={seed}.pt")
+
+    """Ideally we define a FeatureExtractor parent class to class polymorphism,
+    but for now it seems torchscript does not support inheritance
+    https://learn.foundry.com/nuke/developers/14.0/catfilecreationreferenceguide/inheritance.html
+    thus we do a manual check
+    """
+    if isinstance(model,md.ResNet_Tumor) or isinstance(model,md.UNI_Tumor):
+        model.save_with_softmax(model_save_path)
+    else:
+        torch.save(model.state_dict(),model_save_path)
     return losses, accuracies
 
 
@@ -290,69 +297,63 @@ def check_if_overfit(valid_losses,filepath):
             return True
     return False
 
+def main(number_of_epochs,k,batch_size,proven_mutation_only,normalize,tumor_type):
+    loaders, count_dict = ld.load_training_image_data(
+    batch_size=batch_size,
+    samples_per_class=k,
+    tumor_type=tumor_type,
+    seed=seed,
+    normalized=normalize,
+    proven_mutation_only=proven_mutation_only,
+    validation=False,
+    )
+    if len(loaders) == 3:
+        train_loader, valid_loader, test_loader = loaders
+    else:
+        train_loader, test_loader = loaders
+    if len(count_dict) == 3:
+        train_count, valid_count, test_count = count_dict
+    else:
+        train_count, test_count = count_dict
+    count_array = np.array(list(train_count.values()))
+    # dataset is imbalanced if the largest class is over twice the size of the smallest class
+    imbalance = count_array.max() / count_array.min() > 2
+    classifier = md.ResNet_Tumor(classes=len(train_count.keys()),training=True)
+    classifier = classifier.to(DEVICE)
+    summary(classifier, input_size=(batch_size, 3, 224, 224))
+    model_path = f"./results/training/models/{str(type(classifier).__name__)}/k={k}"
+    if normalize:
+        model_path += "_normalized"
+    if proven_mutation_only:
+        model_path += "_proven_mutation"
+    model_path += f"/{tumor_type}"
+    os.makedirs(model_path,exist_ok=True)
+    losses, accuracies = train_model(
+        classifier,
+        tumor_type,
+        seed = seed,
+        input_shape=(batch_size, 3, 224, 224),
+        train_loader=train_loader,
+        valid_loader=test_loader,
+        train_count=train_count,
+        valid_count=test_count,
+        save_path=model_path,
+        num_epochs=number_of_epochs,
+        number_of_validations=3,
+        learning_rate=0.001,
+        weight_decay=0.001,
+        imbalanced=imbalance,
+        early_stopping=True
+    )
+
 
 if __name__ == "__main__":
     utils.print_cuda_memory()
     seed = 99
     utils.set_seed(seed)
     DEVICE = utils.load_device(seed)
-    number_of_epochs = 200
-    k = 10000
-    batch_size = 128
-    proven_mutation_only = False
-    normalize = True
-
-    for idx, tumor_type in enumerate(os.listdir("./images")):
-        print(tumor_type)
-        if tumor_type not in ["DDC_UC_1"]:
-            continue
-        loaders, count_dict = ld.load_training_image_data(
-            batch_size=batch_size,
-            samples_per_class=k,
-            tumor_type=tumor_type,
-            seed=seed,
-            normalized=normalize,
-            proven_mutation_only=proven_mutation_only,
-            validation=False,
-        )
-        if len(loaders) == 3:
-            train_loader, valid_loader, test_loader = loaders
-        else:
-            train_loader, test_loader = loaders
-        if len(count_dict) == 3:
-            train_count, valid_count, test_count = count_dict
-        else:
-            train_count, test_count = count_dict
-        count_array = np.array(list(train_count.values()))
-        # dataset is imbalanced if the largest class at over ten times the size of the smallest class
-        imbalance = count_array.max() / count_array.min() > 2
-        classifier = md.ResNet_Tumor(classes=len(train_count.keys()),training=True)
-        classifier = classifier.to(DEVICE)
-        summary(classifier, input_size=(batch_size, 3, 224, 224))
-        model_path = f"./results/training/models/{str(type(classifier).__name__)}/k={k}"
-        if normalize:
-            model_path += "_normalized"
-        if proven_mutation_only:
-            model_path += "_proven_mutation"
-        model_path += f"/{tumor_type}"
-        os.makedirs(model_path,exist_ok=True)
-        losses, accuracies = train_model(
-            classifier,
-            tumor_type,
-            seed = seed,
-            input_shape=(batch_size, 3, 224, 224),
-            train_loader=train_loader,
-            valid_loader=test_loader,
-            train_count=train_count,
-            valid_count=test_count,
-            save_path=model_path,
-            num_epochs=number_of_epochs,
-            number_of_validations=3,
-            learning_rate=0.001,
-            weight_decay=0.001,
-            imbalanced=imbalance,
-            early_stopping=True
-        )
+    main(2,10000,128,False,True,"DDC_UC_1")
+    main(200,3000,128,True,True,"DDC_UC_1")
         # print(losses,accuracies)
         # test_dict = {}
         # for filename in os.listdir(f"results/training/models/ResNet_Tumor/all/{tumor_type}"):

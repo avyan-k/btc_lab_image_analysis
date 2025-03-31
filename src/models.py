@@ -17,39 +17,42 @@ import utils
 """Custom ResNet Model"""
 class Tumor_Classifier(nn.Module):
     def __init__(
-        self, input_neurons, classes, apply_softmax,layers=1, neurons_per_layer=500, dropout=0.5
+        self, input_neurons, classes,layers=1, neurons_per_layer=500, dropout=0.5
     ):
         """
         If apply_softmax is set to True, a final softmax activation layer is applied to output class probabilities.
         If softmax is applied to the model output after inference, then apply_softmax should be set to False (softmax is NOT idempotent)
         """
         super(Tumor_Classifier, self).__init__()
-        self.apply_softmax = apply_softmax
         self.dropout = dropout
         self.batch1d = nn.BatchNorm1d(
             input_neurons, track_running_stats=False, affine=False
         )
+        self.first_activation = nn.LeakyReLU(inplace=True) # input is a bunch of linear features, so activate them
         self.network = nn.ModuleList()
         self.network.append(nn.Linear(input_neurons, neurons_per_layer))
+        self.network.append(nn.Dropout(self.dropout,inplace=True))
         for _ in range(layers - 1):
-            self.network.append(nn.Linear(neurons_per_layer, neurons_per_layer * 2))
-            neurons_per_layer *= 2
+            self.network.append(nn.LeakyReLU(inplace=True)) 
+            self.network.append(nn.Linear(neurons_per_layer, neurons_per_layer // 2))
+            self.network.append(nn.Dropout(self.dropout,inplace=True))
+            neurons_per_layer //= 2
+        self.network.append(nn.LeakyReLU(inplace=True))
         self.network.append(nn.Linear(neurons_per_layer, classes))
+
 
     def forward(self, x):
         x = torch.flatten(x, start_dim=1)  # Flatten to a 1D vector
         if x.shape[0] > 1:
             x = self.batch1d(x)
-        for i,layer in enumerate(self.network):
-            if i<len(self.network)-1:
-                x = F.leaky_relu(layer(x))
-                x = F.dropout(x, self.dropout)
-            else:
-                x = layer(x)
-        if self.apply_softmax:
-            return F.softmax(x) # return class probabilities
-        else:
-            return x # last layer no activation
+        x = self.first_activation(x)
+        for layer in self.network:
+            x = layer(x)
+        return x # last layer no activation
+    
+    def add_softmax(self):
+        if not isinstance(self.network[-1],nn.Softmax):
+            self.network.append(nn.Softmax(dim=1))
 
 
 class ResNet_Tumor(nn.Module):
@@ -57,7 +60,9 @@ class ResNet_Tumor(nn.Module):
         """if training is set to True, softmax is not applied to model output"""
         super(ResNet_Tumor, self).__init__()
         if feature_classifier is None:
-            self.fc = Tumor_Classifier(input_neurons=1000,apply_softmax=training,classes=classes)
+            self.fc = Tumor_Classifier(input_neurons=1000,classes=classes)
+            if not training:
+                self.fc.add_softmax()
         else:
             self.fc = feature_classifier
         self.resnet = timm.create_model("resnet18", pretrained=False)
@@ -66,13 +71,21 @@ class ResNet_Tumor(nn.Module):
         x = self.resnet(x)
         x = self.fc(x)
         return x
+    
+    def save_with_softmax(self,save_path:str):
+        self.fc.add_softmax()
+        torch.save(self.state_dict(),save_path)
+
+
 
 """UNI Model"""
 class UNI_Tumor(nn.Module):
     def __init__(self, classes=2, training = False, feature_classifier=None, pretrained = False):
         super(UNI_Tumor, self).__init__()
         if feature_classifier is None:
-            self.fc = Tumor_Classifier(input_neurons=1024,apply_softmax=training,classes=classes)
+            self.fc = Tumor_Classifier(input_neurons=1024,classes=classes)
+            if not training:
+                self.fc.add_softmax()
         else:
             self.fc = feature_classifier
         self.uni, _ = get_encoder(enc_name="uni",device="cpu")
@@ -122,11 +135,6 @@ def get_resnet50_model():
     model.eval()
     return model
 
-def get_resnet18_model():
-    model = torchmodels.resnet18(weights=torchmodels.ResNet18_Weights.DEFAULT)
-    model.eval()
-    return model
-
 def get_VGG16_model():
     model = torchmodels.vgg16(weights=torchmodels.VGG16_Weights.DEFAULT)
     model.eval()
@@ -141,16 +149,17 @@ if __name__ == "__main__":
     x = torch.rand((1, 3, 224, 224)).to(DEVICE)
 
     # resnet_tumor = ResNet_Tumor(classes=2)
-    uni_tumor = UNI_Tumor(classes=2,pretrained=True, feature_classifier=nn.Identity())
-    uni_tumor = uni_tumor.to(DEVICE)
-    summary(uni_tumor,(1, 3, 224, 224))
-    x = uni_tumor(x)
-    print(x.shape)
+    # uni_tumor = UNI_Tumor(classes=2,pretrained=True, feature_classifier=nn.Identity())
+    # uni_tumor = uni_tumor.to(DEVICE)
+    # summary(uni_tumor,(1, 3, 224, 224))
+    # x = uni_tumor(x)
+    # print(x.shape)
     x = torch.rand((1, 3, 224, 224)).to(DEVICE)
     model = ResNet_Tumor(classes=3)
-    model.load_state_dict(torch.load("./results/training/models/ResNet_Tumor/DDC_UC_1-10000-Normalized.pt"))
+    # model.load_state_dict(torch.load("./results/training/models/ResNet_Tumor/DDC_UC_1-10000-Normalized.pt"))
+    # model = get_VGG16_model()
     model = model.to(DEVICE)
-    model.fc = nn.Identity()
+    # model.fc = nn.Identity()
     summary(model)
     x = model(x)
-    print(x.shape)
+    print(x)

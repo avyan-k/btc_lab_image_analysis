@@ -146,30 +146,25 @@ def plot_umap(umap_model,annotations,tumor_type, save_path):
     plt.show()
     print(f"UMAP plot saved in {save_path}")
 
-def main(stain_normalized = False):
-    for tumor_type in reversed(os.listdir("./images")):
-        if tumor_type not in ["DDC_UC_1"]:
-            continue
+def main(tumor_type,stain_normalized = False):
+    model = md.ResNet_Tumor(classes=len(os.listdir(f"./images/{tumor_type}/images")))
+    model.load_state_dict(torch.load("./results/training/models/ResNet_Tumor/DDC_UC_1-10000-Normalized.pt"))
+    model.fc = torch.nn.Identity()
+    annotations, model_features = get_features_array(model,tumor_type,stain_normalized=stain_normalized,sample=False)
+    pca_features = get_PCA_embeddings(model_features)
+    fitted_umap = fit_umap_to_pca(pca_features)
 
-        model = md.get_resnet_model()
-        # model = md.ResNet_Tumor(classes=len(os.listdir(f"./images/{tumor_type}/images")))
-        # model.load_state_dict(torch.load(f"./results/training/models/ResNet_Tumor/k=10000_normalized/{tumor_type}/epochs=80-lr=0.001-seed=99.pt"))
-        # model.fc = torch.nn.Identity()
-        annotations, model_features = get_features_array(model,tumor_type,stain_normalized=stain_normalized,sample=False)
-        pca_features = get_PCA_embeddings(model_features)
-        fitted_umap = fit_umap_to_pca(pca_features)
-
-        results_directory = "./results/normalized_umap"
-        Path(os.path.join(results_directory)).mkdir(
-                parents=True, exist_ok=True
-        ) 
-        plot_file = f"umap_{tumor_type}_{model_features.shape[0]}{'_normalized_' if stain_normalized else '_'}{type(model).__name__}_annotations.png"  # filename
-        plot_path = os.path.join(results_directory, plot_file)  # file path
-        plot_umap(fitted_umap,annotations,tumor_type,plot_path)
-        print(f"\nUMAP generation completed at {utils.get_time()}")
+    results_directory = "./results/normalized_umap"
+    Path(os.path.join(results_directory)).mkdir(
+            parents=True, exist_ok=True
+    ) 
+    plot_file = f"umap_{tumor_type}_{model_features.shape[0]}{'_normalized_' if stain_normalized else '_'}{type(model).__name__}_annotations.png"  # filename
+    plot_path = os.path.join(results_directory, plot_file)  # file path
+    plot_umap(fitted_umap,annotations,tumor_type,plot_path)
+    print(f"\nUMAP generation completed at {utils.get_time()}")
 
 
 if __name__ == "__main__":
     seed = 99
     DEVICE = utils.load_device(seed)
-    main()
+    main("DDC_UC_1")
