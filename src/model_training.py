@@ -32,6 +32,7 @@ def train_model(
     learning_rate: float = 0.001,
     weight_decay: float = 0.001,
     imbalanced: bool = False,
+    early_stopping: bool = False
 ):
     losses = np.empty((num_epochs, 2))  # list of tuple train_loss,val_loss
     accuracies = np.empty((num_epochs, 2))  # list of tuple train_acc,val_acc
@@ -60,6 +61,7 @@ def train_model(
     else:
         accuracy = lambda y_hat, y: multiclass_auroc(y_hat.cpu(), y.cpu(), num_classes=len(train_count.keys()))
     for epoch in tqdm(range(num_epochs), desc="Epoch", position=3, leave=False):
+        train_loss_sum = 0
         train_loss = float("inf")
         val_loss = float("inf")
         val_accuracy = 0
@@ -78,6 +80,9 @@ def train_model(
             train_accuracy_sum += accuracy(y_hat, y_train)
             # comparing the model's predictions with the truth labels
             train_loss = train_loss_function(y_hat, y_train)
+
+            # SGD makes loss fluctuates a lot, so we take average over epoch
+            train_loss_sum += train_loss
 
             # backpropagating the loss through the model
             train_loss.backward()
@@ -99,6 +104,7 @@ def train_model(
                 )
 
         train_accuracy = train_accuracy_sum / len(train_loader)
+        train_loss = train_loss_sum / len(train_loader)
         # logging results
         log_training_results(
             filepath=loss_path,
@@ -111,11 +117,9 @@ def train_model(
             val_loss=val_loss,
             val_accuracy=val_accuracy,
         )
-        # if epoch == 59:
-        #         torch.save(
-        #             model.state_dict(),
-        #             os.path.join(save_path, f"early_epochs={epoch}-lr={learning_rate}-seed={seed}.pt"),
-        #         )
+        if early_stopping:
+            if check_if_overfit(valid_losses = losses[:,1].squeeze(),filepath=loss_path):
+                break       
     plot_losses(losses, num_epochs, save_path)
     plot_accuracies(accuracies, num_epochs, save_path)
     torch.save(
@@ -135,9 +139,7 @@ def valid_model(
     accuracy_function,
     model_directory,
 ):
-    loss_function = nn.CrossEntropyLoss(weight=ld.count_dict_tensor(valid_count)).to(
-        DEVICE
-    )
+    loss_function = nn.CrossEntropyLoss(weight=ld.count_dict_tensor(valid_count)).to(DEVICE)
     loss_path = os.path.join(
         model_directory, f"losses_{str(type(model).__name__)}_{tumor_type}.txt"
     )
@@ -257,8 +259,7 @@ def plot_accuracies(accuracies, number_of_epochs, path):
         os.remove(img_file)
     plt.savefig(img_file)
     plt.show()
-
-
+    
 def test(model, test_loader, test_count):
     testing_accuracy_sum = torch.tensor(0.0)
     model = model.to(DEVICE)
@@ -276,13 +277,26 @@ def test(model, test_loader, test_count):
 
     return test_accuracy
 
+def check_if_overfit(valid_losses,filepath):
+    assert len(valid_losses.shape) == 1
+    if len(valid_losses) > 3:
+        last_n_losses = np.array(valid_losses[-4:])
+        change_in_loss = last_n_losses[1:]-last_n_losses[:-1]
+        if np.all(change_in_loss>0):
+            with open(filepath, "a", encoding="utf-8") as f:
+                f.write(f"Validation Loss increasing,\
+                        change in validation loss from last 10 epochs {','.join(change_in_loss)},\
+                        exiting training loop") 
+            return True
+    return False
+
 
 if __name__ == "__main__":
     utils.print_cuda_memory()
     seed = 99
     utils.set_seed(seed)
     DEVICE = utils.load_device(seed)
-    number_of_epochs = 80
+    number_of_epochs = 200
     k = 10000
     batch_size = 128
     proven_mutation_only = False
@@ -312,7 +326,7 @@ if __name__ == "__main__":
         count_array = np.array(list(train_count.values()))
         # dataset is imbalanced if the largest class at over ten times the size of the smallest class
         imbalance = count_array.max() / count_array.min() > 2
-        classifier = md.ResNet_Tumor(classes=len(train_count.keys()))
+        classifier = md.ResNet_Tumor(classes=len(train_count.keys()),training=True)
         classifier = classifier.to(DEVICE)
         summary(classifier, input_size=(batch_size, 3, 224, 224))
         model_path = f"./results/training/models/{str(type(classifier).__name__)}/k={k}"
@@ -336,7 +350,8 @@ if __name__ == "__main__":
             number_of_validations=3,
             learning_rate=0.001,
             weight_decay=0.001,
-            imbalanced=imbalance
+            imbalanced=imbalance,
+            early_stopping=True
         )
         # print(losses,accuracies)
         # test_dict = {}
