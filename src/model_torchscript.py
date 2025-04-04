@@ -10,7 +10,7 @@ import loading_data as ld
 
 def get_torchscript_resnet_tumor(tumor_type, weight_path):
     classes = ld.get_annotation_classes(tumor_type)
-    feature_classifier = md.Tumor_Classifier(input_neurons=1000,apply_softmax=False,classes=len(classes))
+    feature_classifier = md.Tumor_Classifier(input_neurons=1000,classes=len(classes))
 
     traced_feature_classifier = torch.jit.script(feature_classifier)
     resnet_classifier = md.ResNet_Tumor(

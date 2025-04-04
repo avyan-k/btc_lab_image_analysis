@@ -30,15 +30,18 @@ class Tumor_Classifier(nn.Module):
         )
         self.first_activation = nn.LeakyReLU(inplace=True) # input is a bunch of linear features, so activate them
         self.network = nn.ModuleList()
-        self.network.append(nn.Linear(input_neurons, neurons_per_layer))
-        self.network.append(nn.Dropout(self.dropout,inplace=True))
-        for _ in range(layers - 1):
-            self.network.append(nn.LeakyReLU(inplace=True)) 
-            self.network.append(nn.Linear(neurons_per_layer, neurons_per_layer // 2))
+        if layers > 0:
+            self.network.append(nn.Linear(input_neurons, neurons_per_layer))
             self.network.append(nn.Dropout(self.dropout,inplace=True))
-            neurons_per_layer //= 2
-        self.network.append(nn.LeakyReLU(inplace=True))
-        self.network.append(nn.Linear(neurons_per_layer, classes))
+            for _ in range(layers - 1):
+                self.network.append(nn.LeakyReLU(inplace=True)) 
+                self.network.append(nn.Linear(neurons_per_layer, neurons_per_layer // 2))
+                self.network.append(nn.Dropout(self.dropout,inplace=True))
+                neurons_per_layer //= 2
+            self.network.append(nn.LeakyReLU(inplace=True))
+            self.network.append(nn.Linear(neurons_per_layer, classes))
+        else:
+            self.network.append(nn.Linear(input_neurons, classes))
 
 
     def forward(self, x):
@@ -56,11 +59,11 @@ class Tumor_Classifier(nn.Module):
 
 
 class ResNet_Tumor(nn.Module):
-    def __init__(self, classes=2, training = False, feature_classifier=None):
+    def __init__(self, classes=2, training = False, feature_classifier=None, classif_layers = 1):
         """if training is set to True, softmax is not applied to model output"""
         super(ResNet_Tumor, self).__init__()
         if feature_classifier is None:
-            self.fc = Tumor_Classifier(input_neurons=1000,classes=classes)
+            self.fc = Tumor_Classifier(input_neurons=1000,classes=classes,layers=classif_layers)
             if not training:
                 self.fc.add_softmax()
         else:
@@ -155,7 +158,7 @@ if __name__ == "__main__":
     # x = uni_tumor(x)
     # print(x.shape)
     x = torch.rand((1, 3, 224, 224)).to(DEVICE)
-    model = ResNet_Tumor(classes=3)
+    model = ResNet_Tumor(classes=3,classif_layers=0)
     # model.load_state_dict(torch.load("./results/training/models/ResNet_Tumor/DDC_UC_1-10000-Normalized.pt"))
     # model = get_VGG16_model()
     model = model.to(DEVICE)

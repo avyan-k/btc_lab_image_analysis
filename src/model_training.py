@@ -120,20 +120,7 @@ def train_model(
         if early_stopping:
             if check_if_overfit(valid_losses = losses[:,1].squeeze(),filepath=loss_path):
                 break       
-    plot_losses(losses, num_epochs, save_path)
-    plot_accuracies(accuracies, num_epochs, save_path)
-    model_save_path = os.path.join(save_path, f"epochs={num_epochs}-lr={learning_rate}-seed={seed}.pt")
-
-    """Ideally we define a FeatureExtractor parent class to class polymorphism,
-    but for now it seems torchscript does not support inheritance
-    https://learn.foundry.com/nuke/developers/14.0/catfilecreationreferenceguide/inheritance.html
-    thus we do a manual check
-    """
-    if isinstance(model,md.ResNet_Tumor) or isinstance(model,md.UNI_Tumor):
-        model.save_with_softmax(model_save_path)
-    else:
-        torch.save(model.state_dict(),model_save_path)
-    return losses, accuracies
+    return model, losses, accuracies
 
 
 def valid_model(
@@ -239,6 +226,8 @@ def plot_losses(losses, number_of_epochs, path):
     xh = np.arange(0, number_of_epochs)
     plt.plot(xh, losses[:, 0], color="b", marker=",", label="Training Loss")
     plt.plot(xh, losses[:, 1], color="r", marker=",", label="Test Loss")
+    ax = plt.gca()
+    ax.xaxis.set_major_locator(mtick.MaxNLocator(integer=True))
     plt.xlabel("Epochs Traversed")
     plt.ylabel("Losses")
     plt.grid()
@@ -257,6 +246,7 @@ def plot_accuracies(accuracies, number_of_epochs, path):
     plt.plot(xh, accuracies[:, 1], color="r", marker=",", label="Test Accuracy")
     ax = plt.gca()
     ax.yaxis.set_major_formatter(mtick.PercentFormatter(xmax=1.0))
+    ax.xaxis.set_major_locator(mtick.MaxNLocator(integer=True))
     plt.xlabel("Epochs Traversed")
     plt.ylabel("Accuracies")
     plt.grid()
@@ -298,6 +288,8 @@ def check_if_overfit(valid_losses,filepath):
     return False
 
 def main(number_of_epochs,k,batch_size,proven_mutation_only,normalize,tumor_type):
+    lr = 0.001
+    wd = 0.001
     loaders, count_dict = ld.load_training_image_data(
     batch_size=batch_size,
     samples_per_class=k,
@@ -318,17 +310,19 @@ def main(number_of_epochs,k,batch_size,proven_mutation_only,normalize,tumor_type
     count_array = np.array(list(train_count.values()))
     # dataset is imbalanced if the largest class is over twice the size of the smallest class
     imbalance = count_array.max() / count_array.min() > 2
-    classifier = md.ResNet_Tumor(classes=len(train_count.keys()),training=True)
+    classifier = md.ResNet_Tumor(classes=len(train_count.keys()),training=True, classif_layers=0)
     classifier = classifier.to(DEVICE)
     summary(classifier, input_size=(batch_size, 3, 224, 224))
-    model_path = f"./results/training/models/{str(type(classifier).__name__)}/k={k}"
+    dataset_description = f"k={k}"
     if normalize:
-        model_path += "_normalized"
+        dataset_description += "_normalized"
     if proven_mutation_only:
-        model_path += "_proven_mutation"
+        dataset_description += "_proven_mutation"
+    model_path = f"./results/training/models/{str(type(classifier).__name__)}/epochs={number_of_epochs}"
+
     model_path += f"/{tumor_type}"
     os.makedirs(model_path,exist_ok=True)
-    losses, accuracies = train_model(
+    trained_model,losses, accuracies = train_model(
         classifier,
         tumor_type,
         seed = seed,
@@ -340,11 +334,25 @@ def main(number_of_epochs,k,batch_size,proven_mutation_only,normalize,tumor_type
         save_path=model_path,
         num_epochs=number_of_epochs,
         number_of_validations=3,
-        learning_rate=0.001,
-        weight_decay=0.001,
+        learning_rate=lr,
+        weight_decay=wd,
         imbalanced=imbalance,
         early_stopping=True
     )
+
+    plot_losses(losses, number_of_epochs, model_path)
+    plot_accuracies(accuracies, number_of_epochs, model_path)
+    model_save_path = os.path.join(model_path, f"batch={batch_size}-no_MLP-test_acc={accuracies[1][-1]:0.3f}.pt")
+
+    """Ideally we define a FeatureExtractor parent class to class polymorphism,
+    but for now it seems torchscript does not support inheritance
+    https://learn.foundry.com/nuke/developers/14.0/catfilecreationreferenceguide/inheritance.html
+    thus we do a manual check
+    """
+    if isinstance(trained_model,md.ResNet_Tumor) or isinstance(trained_model,md.UNI_Tumor):
+        trained_model.save_with_softmax(model_save_path)
+    else:
+        torch.save(trained_model.state_dict(),model_save_path)
 
 
 if __name__ == "__main__":
@@ -352,8 +360,8 @@ if __name__ == "__main__":
     seed = 99
     utils.set_seed(seed)
     DEVICE = utils.load_device(seed)
-    main(2,10000,128,False,True,"DDC_UC_1")
-    main(200,3000,128,True,True,"DDC_UC_1")
+    main(20,10000,128,False,True,"DDC_UC_1")
+    main(20,3000,128,True,True,"DDC_UC_1")
         # print(losses,accuracies)
         # test_dict = {}
         # for filename in os.listdir(f"results/training/models/ResNet_Tumor/all/{tumor_type}"):
