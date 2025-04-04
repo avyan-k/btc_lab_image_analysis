@@ -59,7 +59,7 @@ def train_model(
     if imbalanced:
         accuracy = lambda y_hat, y: multiclass_f1_score(y_hat.cpu(), y.cpu(), num_classes=len(train_count.keys()))
     else:
-        accuracy = lambda y_hat, y: multiclass_auroc(y_hat.cpu(), y.cpu(), num_classes=len(train_count.keys()))
+        accuracy = lambda y_hat, y: (y.cpu()==y_hat.cpu().argmax(axis=1)).sum()/y.shape[0] # simple accuracy correct predictions/all predictions
     for epoch in tqdm(range(num_epochs), desc="Epoch", position=3, leave=False):
         train_loss_sum = 0
         train_loss = float("inf")
