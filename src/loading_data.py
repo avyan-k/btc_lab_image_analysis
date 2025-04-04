@@ -84,7 +84,7 @@ class BalancedTumorImageData(TumorImageDataset):
 
         return balanced_class_indices
 
-def get_image_dataset(tumor_type,seed,samples_per_class = -1, normalized = True, stain_normalized=False, proven_mutation=False):
+def get_image_dataset(tumor_type,seed,samples_per_class = -1, stain_normalized=False, proven_mutation=False):
     '''
     Get entire image dataset or a balanced subset (if samples_per_class is set to a positive number). 
     If normalized is set to true, the mean and standard deviation of the dataset have been computed and saved, they are loaded from the file. Otherwise, they are computed and saved to the file. 
@@ -103,16 +103,6 @@ def get_image_dataset(tumor_type,seed,samples_per_class = -1, normalized = True,
             transforms.ToTensor(),  # Converts the image to a PyTorch tensor, which also scales the pixel values to the range [0, 1]
         ]
     )
-    if normalized:
-        means,stds = get_mean_std_per_channel(tumor_type,seed,stain_normalized)        
-        print(f"Dataset mean for RGB channels: {means}")
-        print(f"Dataset standard deviation for RGB channels: {stds}")
-        processing_transforms = transforms.Compose(
-            [processing_transforms,
-            transforms.Normalize(
-                    mean=means, std=stds
-                ),  # Normalizes the image tensor using  mean and standard deviation)
-            ])
     if samples_per_class == "all":
         if proven_mutation:
             proven_mutation = get_proven_mutation_cases(tumor_type)
@@ -127,53 +117,39 @@ def get_image_dataset(tumor_type,seed,samples_per_class = -1, normalized = True,
         return BalancedTumorImageData(
             image_directory, k=samples_per_class, transform=processing_transforms
         )
-def load_training_image_data(
-        batch_size,
-        tumor_type,
-        seed,
-        samples_per_class=-1,
-        normalized=True,
-        proven_mutation_only=False,
-        validation=False,
-    ):
-    '''
-    External wrapper for  get_loaders_training_image_data to allow any dataset to be loaded
-    '''
-    full_dataset = get_image_dataset(tumor_type=tumor_type,seed=seed,samples_per_class=samples_per_class,normalized=normalized, proven_mutation=proven_mutation_only)
-    return get_loaders_training_image_data(full_dataset,batch_size,validation=validation)
 
-
-def get_loaders_training_image_data(
-    dataset,
-    batch_size,
-    validation=False,
-):
+def split_datasets(dataset,test_ratio,validation=False,validation_ratio=None,verbose=False,generator:torch.Generator|None=None):
     train_size = len(dataset)
     # Split the datasets into training, validation, and testing sets
     if validation:
-        train_dataset, valid_dataset, test_dataset, _ = random_split(
-            dataset,
-            [
-                int(train_size * 0.8),
-                int(train_size * 0.1),
-                int(train_size * 0.1),
+        assert validation_ratio is not None and test_ratio+validation_ratio<1.0
+        train_ratio = 1.0-test_ratio-validation_ratio
+        ratios = [
+                int(train_size * train_ratio),
+                int(train_size * validation_ratio),
+                int(train_size * test_ratio),
                 train_size
-                - int(train_size * 0.8)
-                - int(train_size * 0.1)
-                - int(train_size * 0.1),
-            ],
-        )
+                - int(train_size * train_ratio)
+                - int(train_size * validation_ratio)
+                - int(train_size * test_ratio),
+            ]
+        if generator:
+            train_dataset, valid_dataset, test_dataset, _ = random_split(dataset,ratios,generator)
+        else:
+            train_dataset, valid_dataset, test_dataset, _ = random_split(dataset,ratios)
     else:
-        train_dataset, test_dataset, _ = random_split(
-            dataset,
-            [
-                int(train_size * 0.9),
-                int(train_size * 0.1),
-                train_size - int(train_size * 0.9) - int(train_size * 0.1),
-            ],
-        )
+        assert test_ratio < 1.0
+        train_ratio = 1.0-test_ratio
+        ratios = [
+                int(train_size * train_ratio),
+                int(train_size * test_ratio),
+                train_size - int(train_size * train_ratio) - int(train_size * test_ratio),
+            ]
+        if generator:
+            train_dataset, test_dataset, _ = random_split(dataset,ratios,generator)
+        else:
+            train_dataset, test_dataset, _ = random_split(dataset,ratios)
         valid_dataset = None
-
     train_classes = dict(
         sorted(
             Counter([dataset.targets[i] for i in train_dataset.indices]).items()
@@ -182,6 +158,97 @@ def get_loaders_training_image_data(
     test_classes = dict(
         sorted(Counter([dataset.targets[i] for i in test_dataset.indices]).items())
     )
+    valid_classes = None
+    if valid_dataset is not None:
+        valid_classes = dict(
+            sorted(
+                Counter(
+                    [dataset.targets[i] for i in valid_dataset.indices]
+                ).items()
+            )
+        )
+
+    if verbose:
+        print(
+            f"Training set size: {len(train_dataset)}, Class Proportions: {({dataset.classes[k]:v for k,v in train_classes.items()})}"
+        )
+
+        print(
+            f"Test set size: {len(test_dataset)}, Class Proportions: {({dataset.classes[k]:v for k,v in test_classes.items()})}"
+        )
+        if valid_classes is not None and valid_dataset is not None:
+            print(
+                f"Validation set size: {len(valid_dataset)}, Class Proportions: {({dataset.classes[k]:v for k,v in valid_classes.items()})}"
+            )
+    if validation:
+        return train_dataset,test_dataset,valid_dataset,train_classes,test_classes,valid_classes
+    return train_dataset,test_dataset,train_classes,test_classes
+
+def normalize_dataset(
+        train_set,
+        seed,
+        tumor_type,
+        dataset_info,
+        stain_normalized=False,
+        proven_mutation=False,
+        ):
+    image_directory = get_image_directory(tumor_type,stain_normalized)
+        
+    means,stds = get_mean_std_per_channel(train_set,dataset_info,seed)
+    print(f"Dataset mean for RGB channels: {means}")
+    print(f"Dataset standard deviation for RGB channels: {stds}")
+    
+    processing_transforms = transforms.Compose([
+            # ResNet expects 224x224 images    
+            transforms.Resize((224, 224)),  
+            # Normalizes the image tensor using  mean and standard deviation
+            transforms.Normalize(mean=means, std=stds),
+            # Converts the image to a PyTorch tensor, which also scales the pixel values to the range [0, 1]
+            transforms.ToTensor(),  
+        ])
+    if proven_mutation:
+        proven_mutation = get_proven_mutation_cases(tumor_type)
+        return TumorImageDataset(root=image_directory, transform=processing_transforms, cases=proven_mutation)
+    return TumorImageDataset(root=image_directory, transform=processing_transforms)
+def load_training_image_data(
+        batch_size,
+        tumor_type,
+        seed,
+        samples_per_class=-1,
+        normalized=True,
+        proven_mutation_only=False,
+        test_ratio = 0.2,
+        validation=False,
+        valid_ratio = None
+    ):
+    '''
+    External wrapper for  get_loaders_training_image_data to allow any dataset to be loaded
+    '''
+    full_dataset = get_image_dataset(tumor_type=tumor_type,seed=seed,samples_per_class=samples_per_class, proven_mutation=proven_mutation_only)
+    split_generator = torch.Generator().manual_seed(seed)
+    if normalized:
+        unnorm_train_dataset,_,_,_ = split_datasets(full_dataset,test_ratio,validation,valid_ratio,True,split_generator) # type: ignore
+        dataset_info = get_dataset_info(tumor_type,False,False,proven_mutation_only,test_ratio,valid_ratio) 
+        full_dataset = normalize_dataset(unnorm_train_dataset,seed,tumor_type,dataset_info,proven_mutation_only)
+    if validation:
+        train_set,test_set,valid_set,train_class,test_class,valid_class = split_datasets(full_dataset,test_ratio,True,valid_ratio,False,split_generator) # type: ignore
+        return get_loaders_training_image_data(train_set,test_set,train_class,test_class,batch_size,valid_set,valid_class)
+    else:
+        train_set,test_set,train_class,test_class = split_datasets(full_dataset,test_ratio,False,None,False,split_generator) # type: ignore
+        return get_loaders_training_image_data(train_set,test_set,train_class,test_class,batch_size) 
+
+
+def get_loaders_training_image_data(
+    train_dataset,
+    test_dataset,
+    train_classes,
+    test_classes,
+    batch_size,
+    valid_dataset = None,
+    valid_classes = None
+):
+
+
 
     train_loader = DataLoader(
         train_dataset,
@@ -196,31 +263,12 @@ def get_loaders_training_image_data(
         shuffle=True,
         num_workers=get_allowed_forks(),
     )
-
-    print(
-        f"Training set size: {len(train_dataset)}, Class Proportions: {({dataset.classes[k]:v for k,v in train_classes.items()})}"
-    )
-
-    print(
-        f"Test set size: {len(test_dataset)}, Class Proportions: {({dataset.classes[k]:v for k,v in test_classes.items()})}"
-    )
-
     if valid_dataset is not None:
-        valid_classes = dict(
-            sorted(
-                Counter(
-                    [dataset.targets[i] for i in valid_dataset.indices]
-                ).items()
-            )
-        )
         valid_loader = DataLoader(
             valid_dataset,
             batch_size=batch_size,
             shuffle=True,
             num_workers=get_allowed_forks(),
-        )
-        print(
-            f"Validation set size: {len(valid_dataset)}, Class Proportions: {({dataset.classes[k]:v for k,v in valid_classes.items()})}"
         )
         return (train_loader, valid_loader, test_loader), (
             train_classes,
@@ -243,8 +291,10 @@ def load_image_data(
     '''
     Same as load_training_image_data but a single loader is returned with the entire dataset, along with a list of class names
     '''
-    full_dataset = get_image_dataset(tumor_type=tumor_type,seed=seed,samples_per_class=samples_per_class,normalized=normalized,stain_normalized=stain_normalize)
-
+    full_dataset = get_image_dataset(tumor_type=tumor_type,seed=seed,samples_per_class=samples_per_class,stain_normalized=stain_normalize)
+    if normalized:
+        dataset_info = get_dataset_info(tumor_type,False,stain_normalize,False)
+        full_dataset = normalize_dataset(full_dataset,seed,tumor_type,dataset_info)
     loader = DataLoader(
         full_dataset,
         batch_size=batch_size,
@@ -364,15 +414,29 @@ def get_size_of_dataset(directory, extension):
 def get_annotation_classes(tumor_type):
     return [
         name
-        for name in os.listdir(get_image_directory(tumor_type))
+        for name in os.listdir(get_image_directory(tumor_type,stain_normalized=False))
         if name not in [".DS_Store", "__MACOSX"]
     ]
 
-def get_image_directory(tumor_type,stain_normalized = False):
+def get_image_directory(tumor_type,stain_normalized):
     image_directory = f"./images/{tumor_type}/images" if not stain_normalized else f"./images/{tumor_type}/normalized_images"
     if not os.path.isdir(image_directory):
         raise FileNotFoundError(f"Unable to find image folder {image_directory}")
     return image_directory
+
+def get_dataset_info(tumor_type,normalized,stain_normalized,proven_mutation,test_ratio=None,valid_ratio=None):
+    dataset_info = tumor_type
+    if test_ratio:
+        dataset_info += f"-test={test_ratio}"
+    if valid_ratio:
+        dataset_info += f"-valid={valid_ratio}"
+    if normalized:
+        dataset_info += "_normalized"
+    if stain_normalized:
+        dataset_info += "_stain-normalized"
+    if proven_mutation:
+        dataset_info += "_proven-mutation-only"
+    return dataset_info
 
 def check_for_unopenable_files(tumor_type, norm=False):
     image_directory = get_image_directory(tumor_type,norm)
@@ -503,19 +567,13 @@ def find_cases(image_directory):
     }
     return case_dict
 
-def get_mean_std_per_channel(tumor_type,seed,stain_normalized=False,proven_mutation = False):
+def get_mean_std_per_channel(dataset,dataset_info,seed):
     '''
     Loads mean and standard deviation of the dataset from a file if it exists, otherwise loads dataset at image_directory and computes mean and standard deviation
     '''
-    image_directory = get_image_directory(tumor_type,stain_normalized=stain_normalized)
     mean_std_path = (
-        f"./results/training/mean_stds/{tumor_type}"
+        f"./results/training/mean_stds/{dataset_info}"
     )
-    if stain_normalized:
-        mean_std_path += "_normalized"
-    if proven_mutation:
-        mean_std_path += "_proven-mutation-only"
-    os.makedirs(mean_std_path,exist_ok=True)
     mean_std_path += ".txt"
     try:
         with open(mean_std_path, "r") as f:
@@ -524,11 +582,8 @@ def get_mean_std_per_channel(tumor_type,seed,stain_normalized=False,proven_mutat
     except (
         EOFError,
         FileNotFoundError,
-    ):  # if the file does not exist, load dataset without transforming and compute mean and stf
-        if proven_mutation:
-            proven_mutation = get_proven_mutation_cases(tumor_type)
-            dataset = TumorImageDataset(root=image_directory, transform=transforms.ToTensor(), cases=proven_mutation)
-        dataset = TumorImageDataset(root=image_directory, transform=transforms.ToTensor())
+    ):  # if the file does not exist, load dataset without transforming and compute mean and std
+        
         means, stds = compute_and_save_mean_std_per_channel(
             dataset=dataset, path=mean_std_path, seed=seed
         )
@@ -581,9 +636,9 @@ if __name__ == "__main__":
     k = 10000
     # print(*list(os.listdir('./images/DDC_UC_1/normalized_images/undiff')),sep='\n')
     # x = imread('./images/DDC_UC_1/normalized_images/undiff/AS19060903_275284.jpg_tile_3')
-    for tumor_type in os.listdir("images"):
-        print(tumor_type)
-        if tumor_type not in ["DDC_UC_1"]:
+    for tumor in os.listdir("images"):
+        print(tumor)
+        if tumor not in ["DDC_UC_1"]:
             continue
         # for annotation in os.listdir(image_directory):
         #     print(tumor_type[0].lower() + annotation[0])
@@ -607,7 +662,7 @@ if __name__ == "__main__":
 
         start_time = time.time()
         load_training_image_data(
-            batch_size=128, seed=seed, samples_per_class=-1, tumor_type=tumor_type,normalized=True, proven_mutation_only=False
+            batch_size=128, seed=seed, samples_per_class=-1, tumor_type=tumor,normalized=True, proven_mutation_only=False
         )
         print(f"--- {(time.time() - start_time)} seconds ---")
 
