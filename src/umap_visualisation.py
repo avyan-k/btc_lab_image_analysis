@@ -53,8 +53,8 @@ def get_features_array(model, tumor_type,stain_normalized, sample, sample_size=-
     size_of_image_dataset = ld.get_size_of_dataset(image_directory, extension="jpg")
     sample_size = size_of_image_dataset if not sample else sample_size
     assert sample_size > 0
-    features_filename = f"./results/{tumor_type}{'_normalized_' if stain_normalized else '_'}{type(model).__name__}_features.npz"
-    annotation_filename = f"./results/{tumor_type}{'_normalized_' if stain_normalized else '_'}{type(model).__name__}_annotations.npz"
+    features_filename = f"./features/{tumor_type}{'_normalized_' if stain_normalized else '_'}{type(model).__name__}_features.npz"
+    annotation_filename = f"./features/{tumor_type}{'_normalized_' if stain_normalized else '_'}{type(model).__name__}_annotations.npz"
 
     # get features for images in image_loader
     if not os.path.isfile(features_filename) or not os.path.isfile(annotation_filename):

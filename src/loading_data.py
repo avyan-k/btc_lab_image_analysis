@@ -104,7 +104,7 @@ def get_image_dataset(tumor_type,seed,samples_per_class = -1, normalized = True,
         ]
     )
     if normalized:
-        means,stds = get_mean_std_per_channel(tumor_type,samples_per_class,seed,stain_normalized)
+        means,stds = get_mean_std_per_channel(tumor_type,seed,stain_normalized)        
         print(f"Dataset mean for RGB channels: {means}")
         print(f"Dataset standard deviation for RGB channels: {stds}")
         processing_transforms = transforms.Compose(
@@ -503,18 +503,19 @@ def find_cases(image_directory):
     }
     return case_dict
 
-def get_mean_std_per_channel(tumor_type,samples_per_class,seed,stain_normalized=False,proven_mutation = False):
+def get_mean_std_per_channel(tumor_type,seed,stain_normalized=False,proven_mutation = False):
     '''
     Loads mean and standard deviation of the dataset from a file if it exists, otherwise loads dataset at image_directory and computes mean and standard deviation
     '''
     image_directory = get_image_directory(tumor_type,stain_normalized=stain_normalized)
     mean_std_path = (
-        f"./results/training/{tumor_type}-k={samples_per_class}-seed={seed}"
+        f"./results/training/mean_stds/{tumor_type}"
     )
     if stain_normalized:
         mean_std_path += "_normalized"
     if proven_mutation:
         mean_std_path += "_proven-mutation-only"
+    os.makedirs(mean_std_path,exist_ok=True)
     mean_std_path += ".txt"
     try:
         with open(mean_std_path, "r") as f:
@@ -524,31 +525,18 @@ def get_mean_std_per_channel(tumor_type,samples_per_class,seed,stain_normalized=
         EOFError,
         FileNotFoundError,
     ):  # if the file does not exist, load dataset without transforming and compute mean and stf
-        if samples_per_class == "all":
-            if proven_mutation:
-                proven_mutation = get_proven_mutation_cases(tumor_type)
-                dataset = TumorImageDataset(root=image_directory, transform=transforms.ToTensor(), cases=proven_mutation)
-            dataset = TumorImageDataset(root=image_directory, transform=transforms.ToTensor())
-        else:
-            if proven_mutation:
-                proven_mutation = get_proven_mutation_cases(tumor_type)
-                dataset = BalancedTumorImageData(
-                    image_directory, k=samples_per_class, transform=transforms.ToTensor(), cases=proven_mutation
-                )
-            dataset = BalancedTumorImageData(
-                image_directory, k=samples_per_class, transform=transforms.ToTensor()
-            )
-        k = len(dataset)
+        if proven_mutation:
+            proven_mutation = get_proven_mutation_cases(tumor_type)
+            dataset = TumorImageDataset(root=image_directory, transform=transforms.ToTensor(), cases=proven_mutation)
+        dataset = TumorImageDataset(root=image_directory, transform=transforms.ToTensor())
         means, stds = compute_and_save_mean_std_per_channel(
-            dataset=dataset, path=mean_std_path, seed=seed, k=k
+            dataset=dataset, path=mean_std_path, seed=seed
         )
     return means,stds
 
 
-def compute_and_save_mean_std_per_channel(dataset, path, seed, k=-1):
+def compute_and_save_mean_std_per_channel(dataset, path, seed):
     device = utils.load_device(seed)
-    if k == -1:
-        k = len(dataset)
     if str(device) == "cpu":  # define smaller batchsize if no graphics card
         batch_size = 10
     else:
