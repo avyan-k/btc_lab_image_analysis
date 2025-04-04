@@ -5,7 +5,7 @@ from pathlib import Path
 import torch
 from torchvision import datasets, transforms
 from torchvision.transforms import v2
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader, random_split, sampler as torch_sampler
 from PIL import Image, UnidentifiedImageError
 from tqdm import tqdm
 from datetime import datetime
@@ -84,26 +84,25 @@ class BalancedTumorImageData(TumorImageDataset):
 
         return balanced_class_indices
 
-def get_image_dataset(tumor_type,seed,samples_per_class = -1, stain_normalized=False, proven_mutation=False):
+def get_image_dataset(
+        tumor_type,
+        samples_per_class = -1, 
+        stain_normalized=False, 
+        proven_mutation=False, 
+        processing_transforms = transforms.Compose([transforms.Resize((224, 224)),transforms.ToTensor()]),
+        verbose=False
+        ):
     '''
     Get entire image dataset or a balanced subset (if samples_per_class is set to a positive number). 
-    If normalized is set to true, the mean and standard deviation of the dataset have been computed and saved, they are loaded from the file. Otherwise, they are computed and saved to the file. 
     If stain_normalized is set to true, the images are loaded from the normalized_images directory.
     '''
     image_directory = get_image_directory(tumor_type,stain_normalized=stain_normalized)
 
-    print(f"\nLoading images from: {image_directory}")
+    if verbose:
+        print(f"\nLoading images from: {image_directory}")
+
+
     if samples_per_class == -1:
-        samples_per_class = "all"
-
-
-    processing_transforms = transforms.Compose(
-        [
-            transforms.Resize((224, 224)),  # ResNet expects 224x224 images
-            transforms.ToTensor(),  # Converts the image to a PyTorch tensor, which also scales the pixel values to the range [0, 1]
-        ]
-    )
-    if samples_per_class == "all":
         if proven_mutation:
             proven_mutation = get_proven_mutation_cases(tumor_type)
             return TumorImageDataset(root=image_directory, transform=processing_transforms, cases=proven_mutation)
@@ -150,6 +149,8 @@ def split_datasets(dataset,test_ratio,validation=False,validation_ratio=None,ver
         else:
             train_dataset, test_dataset, _ = random_split(dataset,ratios)
         valid_dataset = None
+
+    all_classes = dict(sorted(Counter(dataset.targets).items(),key=lambda x:x[1]))
     train_classes = dict(
         sorted(
             Counter([dataset.targets[i] for i in train_dataset.indices]).items()
@@ -181,35 +182,9 @@ def split_datasets(dataset,test_ratio,validation=False,validation_ratio=None,ver
                 f"Validation set size: {len(valid_dataset)}, Class Proportions: {({dataset.classes[k]:v for k,v in valid_classes.items()})}"
             )
     if validation:
-        return train_dataset,test_dataset,valid_dataset,train_classes,test_classes,valid_classes
-    return train_dataset,test_dataset,train_classes,test_classes
+        return train_dataset,test_dataset,valid_dataset,train_classes,test_classes,valid_classes,all_classes
+    return train_dataset,test_dataset,train_classes,test_classes,all_classes
 
-def normalize_dataset(
-        train_set,
-        seed,
-        tumor_type,
-        dataset_info,
-        stain_normalized=False,
-        proven_mutation=False,
-        ):
-    image_directory = get_image_directory(tumor_type,stain_normalized)
-        
-    means,stds = get_mean_std_per_channel(train_set,dataset_info,seed)
-    print(f"Dataset mean for RGB channels: {means}")
-    print(f"Dataset standard deviation for RGB channels: {stds}")
-    
-    processing_transforms = transforms.Compose([
-            # ResNet expects 224x224 images    
-            transforms.Resize((224, 224)),  
-            # Normalizes the image tensor using  mean and standard deviation
-            transforms.Normalize(mean=means, std=stds),
-            # Converts the image to a PyTorch tensor, which also scales the pixel values to the range [0, 1]
-            transforms.ToTensor(),  
-        ])
-    if proven_mutation:
-        proven_mutation = get_proven_mutation_cases(tumor_type)
-        return TumorImageDataset(root=image_directory, transform=processing_transforms, cases=proven_mutation)
-    return TumorImageDataset(root=image_directory, transform=processing_transforms)
 def load_training_image_data(
         batch_size,
         tumor_type,
@@ -224,62 +199,80 @@ def load_training_image_data(
     '''
     External wrapper for  get_loaders_training_image_data to allow any dataset to be loaded
     '''
-    full_dataset = get_image_dataset(tumor_type=tumor_type,seed=seed,samples_per_class=samples_per_class, proven_mutation=proven_mutation_only)
+    full_dataset = get_image_dataset(tumor_type=tumor_type,samples_per_class=samples_per_class, proven_mutation=proven_mutation_only,verbose=True)
     split_generator = torch.Generator().manual_seed(seed)
+    
     if normalized:
-        unnorm_train_dataset,_,_,_ = split_datasets(full_dataset,test_ratio,validation,valid_ratio,True,split_generator) # type: ignore
+        unnorm_train_dataset,_,_,_,x = split_datasets(full_dataset,test_ratio,validation,valid_ratio,True,split_generator) # type: ignore
+        print(x)
         dataset_info = get_dataset_info(tumor_type,False,False,proven_mutation_only,test_ratio,valid_ratio) 
-        full_dataset = normalize_dataset(unnorm_train_dataset,seed,tumor_type,dataset_info,proven_mutation_only)
+        norm = get_norm_transform(unnorm_train_dataset,seed,dataset_info)
+        full_dataset = get_image_dataset(tumor_type,samples_per_class,False ,proven_mutation_only,norm)
+    
     if validation:
-        train_set,test_set,valid_set,train_class,test_class,valid_class = split_datasets(full_dataset,test_ratio,True,valid_ratio,False,split_generator) # type: ignore
-        return get_loaders_training_image_data(train_set,test_set,train_class,test_class,batch_size,valid_set,valid_class)
+        train_set,test_set,valid_set,train_class,test_class,valid_class,all_class = split_datasets(full_dataset,test_ratio,True,valid_ratio,False,split_generator) # type: ignore
+        sampler = create_weighted_sampler(full_dataset,all_class,samples_per_class,True)
+        return get_loaders_training_image_data(train_set,test_set,batch_size,sampler,valid_set), (train_class,valid_class,test_class)
     else:
-        train_set,test_set,train_class,test_class = split_datasets(full_dataset,test_ratio,False,None,False,split_generator) # type: ignore
-        return get_loaders_training_image_data(train_set,test_set,train_class,test_class,batch_size) 
+        train_set,test_set,train_class,test_class,all_class = split_datasets(full_dataset,test_ratio,False,None,False,split_generator) # type: ignore
+        sampler = create_weighted_sampler(full_dataset,all_class,samples_per_class,True)
+        print(all_class)
+        return get_loaders_training_image_data(train_set,test_set,batch_size,sampler), (train_class,test_class) 
 
 
 def get_loaders_training_image_data(
     train_dataset,
     test_dataset,
-    train_classes,
-    test_classes,
     batch_size,
+    sampler,
     valid_dataset = None,
-    valid_classes = None
 ):
+    if sampler:
+        train_loader = DataLoader(
+            train_dataset,
+            batch_size=batch_size,
+            sampler=sampler,
+            num_workers=get_allowed_forks(),
+        )
 
-
-
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=get_allowed_forks(),
-    )
-
-    test_loader = DataLoader(
-        test_dataset,
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=get_allowed_forks(),
-    )
-    if valid_dataset is not None:
-        valid_loader = DataLoader(
-            valid_dataset,
+        test_loader = DataLoader(
+            test_dataset,
+            batch_size=batch_size,
+            sampler=sampler,
+            num_workers=get_allowed_forks(),
+        )
+    else:
+        train_loader = DataLoader(
+            train_dataset,
             batch_size=batch_size,
             shuffle=True,
             num_workers=get_allowed_forks(),
         )
-        return (train_loader, valid_loader, test_loader), (
-            train_classes,
-            valid_classes,
-            test_classes,
+
+        test_loader = DataLoader(
+            test_dataset,
+            batch_size=batch_size,
+            shuffle=True,
+            num_workers=get_allowed_forks(),
         )
+    if valid_dataset:
+        if sampler:
+            valid_loader = DataLoader(
+                valid_dataset,
+                batch_size=batch_size,
+                sampler=sampler,
+                num_workers=get_allowed_forks(),
+            )
+        else:
+            valid_loader = DataLoader(
+                valid_dataset,
+                batch_size=batch_size,
+                shuffle=True,
+                num_workers=get_allowed_forks(),
+            )
+        return train_loader, valid_loader, test_loader
     else:
-        return (train_loader, test_loader), (
-            train_classes,
-            test_classes,
-        )
+        return train_loader, test_loader
 def load_image_data(
     batch_size,     
     tumor_type,
@@ -291,10 +284,11 @@ def load_image_data(
     '''
     Same as load_training_image_data but a single loader is returned with the entire dataset, along with a list of class names
     '''
-    full_dataset = get_image_dataset(tumor_type=tumor_type,seed=seed,samples_per_class=samples_per_class,stain_normalized=stain_normalize)
+    full_dataset = get_image_dataset(tumor_type=tumor_type,samples_per_class=samples_per_class,stain_normalized=stain_normalize)
+    dataset_info = get_dataset_info(tumor_type,False,stain_normalize,False)
     if normalized:
-        dataset_info = get_dataset_info(tumor_type,False,stain_normalize,False)
-        full_dataset = normalize_dataset(full_dataset,seed,tumor_type,dataset_info)
+        norm = get_norm_transform(full_dataset,seed,dataset_info)
+        full_dataset = get_image_dataset(tumor_type,samples_per_class,False,False,norm)
     loader = DataLoader(
         full_dataset,
         batch_size=batch_size,
@@ -438,6 +432,20 @@ def get_dataset_info(tumor_type,normalized,stain_normalized,proven_mutation,test
         dataset_info += "_proven-mutation-only"
     return dataset_info
 
+def create_weighted_sampler(dataset,class_dict,samples_per_class,verbose=False):
+    class_weights = list(class_dict.values())
+    if samples_per_class == -1:
+        samples_per_class = len(dataset) // len(class_weights)
+    if verbose:
+        for tumor_class,class_weight in class_dict.items():
+            if class_weight<samples_per_class:
+                print(f"Found {class_weight} samples for class {dataset.classes[tumor_class]}, less than the requested {samples_per_class}. It will be upsampled (resampled with replacement) at a rate of {1-round(float(class_weight/sum(class_weights)),3)}")
+            elif class_weight>samples_per_class:
+                print(f"Found {class_weight}  samples for class {dataset.classes[tumor_class]}, more than the requested {samples_per_class}. It will be downsampled (some samples will be skipped) during training")
+            else:
+                print(f"Found {class_weight} samples for class {dataset.classes[tumor_class]}, as many as the requested {samples_per_class}. All samples will be equally used.")
+    return torch_sampler.WeightedRandomSampler(class_weights, samples_per_class*len(class_weights))   
+
 def check_for_unopenable_files(tumor_type, norm=False):
     image_directory = get_image_directory(tumor_type,norm)
     
@@ -567,6 +575,23 @@ def find_cases(image_directory):
     }
     return case_dict
 
+def get_norm_transform(train_set,seed,normalization_info):
+    """
+    Wrapper for get_mean_std_per_channel as torch transform
+    """
+    means,stds = get_mean_std_per_channel(train_set,normalization_info,seed)
+    print(f"Dataset mean for RGB channels: {means}")
+    print(f"Dataset standard deviation for RGB channels: {stds}")
+    
+    return transforms.Compose([
+            # ResNet expects 224x224 images    
+            transforms.Resize((224, 224)),
+            # Converts the image to a PyTorch tensor, which also scales the pixel values to the range [0, 1]
+            transforms.ToTensor(),
+            # Normalizes the image tensor using  mean and standard deviation
+            transforms.Normalize(mean=means, std=stds)
+        ])
+
 def get_mean_std_per_channel(dataset,dataset_info,seed):
     '''
     Loads mean and standard deviation of the dataset from a file if it exists, otherwise loads dataset at image_directory and computes mean and standard deviation
@@ -583,7 +608,7 @@ def get_mean_std_per_channel(dataset,dataset_info,seed):
         EOFError,
         FileNotFoundError,
     ):  # if the file does not exist, load dataset without transforming and compute mean and std
-        
+        print("Mean and ")
         means, stds = compute_and_save_mean_std_per_channel(
             dataset=dataset, path=mean_std_path, seed=seed
         )
@@ -662,7 +687,7 @@ if __name__ == "__main__":
 
         start_time = time.time()
         load_training_image_data(
-            batch_size=128, seed=seed, samples_per_class=-1, tumor_type=tumor,normalized=True, proven_mutation_only=False
+            batch_size=128, seed=seed, samples_per_class=150000, tumor_type=tumor,normalized=True, proven_mutation_only=False
         )
         print(f"--- {(time.time() - start_time)} seconds ---")
 

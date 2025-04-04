@@ -8,9 +8,9 @@ from tqdm import tqdm
 from torcheval.metrics.functional import multiclass_auroc,multiclass_f1_score
 from torcheval.metrics import MulticlassAUROC
 import os
-from pathlib import Path
 import time
 from torchinfo import summary
+from typing import Tuple
 
 import loading_data as ld
 import utils
@@ -287,12 +287,12 @@ def check_if_overfit(valid_losses,filepath):
             return True
     return False
 
-def main(number_of_epochs,k,batch_size,proven_mutation_only,normalize,tumor_type):
+def main(number_of_epochs:int,samples_per_class:int,batch_size:int,proven_mutation_only:bool,normalize:bool,tumor_type:str):
     lr = 0.001
     wd = 0.001
     loaders, count_dict = ld.load_training_image_data(
     batch_size=batch_size,
-    samples_per_class=k,
+    samples_per_class=samples_per_class,
     tumor_type=tumor_type,
     seed=seed,
     normalized=normalize,
@@ -313,15 +313,11 @@ def main(number_of_epochs,k,batch_size,proven_mutation_only,normalize,tumor_type
     classifier = md.ResNet_Tumor(classes=len(train_count.keys()),training=True, classif_layers=0)
     classifier = classifier.to(DEVICE)
     summary(classifier, input_size=(batch_size, 3, 224, 224))
-    dataset_description = f"k={k}"
-    if normalize:
-        dataset_description += "_normalized"
-    if proven_mutation_only:
-        dataset_description += "_proven_mutation"
-    model_path = f"./results/training/models/{str(type(classifier).__name__)}/epochs={number_of_epochs}"
 
-    model_path += f"/{tumor_type}"
+    dataset_description = ld.get_dataset_info(tumor_type,normalize,False,proven_mutation_only)
+    model_path = f"./results/training/models/{str(type(classifier).__name__)}/epochs={number_of_epochs}/{dataset_description}"
     os.makedirs(model_path,exist_ok=True)
+    
     trained_model,losses, accuracies = train_model(
         classifier,
         tumor_type,
@@ -360,8 +356,8 @@ if __name__ == "__main__":
     seed = 99
     utils.set_seed(seed)
     DEVICE = utils.load_device(seed)
-    main(20,10000,128,False,True,"DDC_UC_1")
-    main(20,3000,128,True,True,"DDC_UC_1")
+    main(20,150_000,128,False,True,"DDC_UC_1")
+    main(20,40_000,128,True,True,"DDC_UC_1")
         # print(losses,accuracies)
         # test_dict = {}
         # for filename in os.listdir(f"results/training/models/ResNet_Tumor/all/{tumor_type}"):
