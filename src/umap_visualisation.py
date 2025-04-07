@@ -146,10 +146,8 @@ def plot_umap(umap_model,annotations,tumor_type, save_path):
     plt.show()
     print(f"UMAP plot saved in {save_path}")
 
-def main(tumor_type,stain_normalized = False):
-    model = md.ResNet_Tumor(classes=len(os.listdir(f"./images/{tumor_type}/images")))
-    model.load_state_dict(torch.load("./results/training/models/ResNet_Tumor/DDC_UC_1-10000-Normalized.pt"))
-    model.fc = torch.nn.Identity()
+def main(tumor_type,model,stain_normalized = False):
+
     annotations, model_features = get_features_array(model,tumor_type,stain_normalized=stain_normalized,sample=False)
     pca_features = get_PCA_embeddings(model_features)
     fitted_umap = fit_umap_to_pca(pca_features)
@@ -167,4 +165,15 @@ def main(tumor_type,stain_normalized = False):
 if __name__ == "__main__":
     seed = 99
     DEVICE = utils.load_device(seed)
-    main("DDC_UC_1")
+    tumor = "DDC_UC_1"
+    # resnet_tumor = md.ResNet_Tumor(classes=len(os.listdir(f"./images/{tumor}/images")))
+    # resnet_tumor.load_state_dict(torch.load("./results/training/models/ResNet_Tumor/DDC_UC_1-10000-Normalized.pt"))
+    # resnet_tumor.fc = torch.nn.Identity()
+    # main(tumor,resnet_tumor,stain_normalized=True)
+    # main(tumor,resnet_tumor,stain_normalized=False)
+    main(tumor,md.get_resnet18_model(),stain_normalized=True)
+    main(tumor,md.get_resnet18_model(),stain_normalized=False)
+    main(tumor,md.get_resnet50_model(),stain_normalized=True)
+    main(tumor,md.get_resnet50_model(),stain_normalized=False)
+    main(tumor,md.get_VGG16_model(),stain_normalized=True)
+    main(tumor,md.get_VGG16_model(),stain_normalized=False)

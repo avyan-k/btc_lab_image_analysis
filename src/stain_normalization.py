@@ -239,7 +239,8 @@ def normalization_evaluation(tumor_type, seed, images_per_case, sample_size):
 def save_normalized_images(tumor_type, source_path, seed):
     batch_size = 300
     image_dataset = ld.get_image_dataset(
-        tumor_type=tumor_type,seed=seed,normalized=False
+        tumor_type=tumor_type,
+        processing_transforms=transforms.Compose([transforms.ToTensor()])
     )
     filepaths = list(zip(*image_dataset.samples))[0]
     image_loader = DataLoader(
@@ -291,7 +292,6 @@ def save_normalized_images(tumor_type, source_path, seed):
             normalized_filepath = utils.rename_dir(filepath, 2, "normalized_images")
             # print(normalized_filepath)
             save_image(image, normalized_filepath)
-        break
 
 
 def check_unnormalizable_images(filepaths, source_path, seed):
@@ -327,7 +327,7 @@ if __name__ == "__main__":
 
     for tumor_type in os.listdir("./images"):
         print(tumor_type)
-        if tumor_type in [".DS_Store", "__MACOSX"]:
+        if tumor_type not in ["DDC_UC_1"]:
             continue
         # check_unnormalizable_images(tumor_type,best_sources[tumor_type],seed)
         # with open(file=f"./results/{tumor_type}_unnormalizable_images.txt",mode='r') as f:

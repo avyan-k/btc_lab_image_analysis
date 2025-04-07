@@ -138,6 +138,11 @@ def get_resnet50_model():
     model.eval()
     return model
 
+def get_resnet18_model():
+    model = torchmodels.resnet18(weights=torchmodels.ResNet18_Weights.DEFAULT)
+    model.eval()
+    return model
+
 def get_VGG16_model():
     model = torchmodels.vgg16(weights=torchmodels.VGG16_Weights.DEFAULT)
     model.eval()

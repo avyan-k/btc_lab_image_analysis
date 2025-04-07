@@ -205,8 +205,7 @@ def load_training_image_data(
     split_generator = torch.Generator().manual_seed(seed)
     
     if normalized:
-        unnorm_train_dataset,_,_,_,x = split_datasets(full_dataset,test_ratio,validation,valid_ratio,True,split_generator) # type: ignore
-        print(x)
+        unnorm_train_dataset,_,_,_,_ = split_datasets(full_dataset,test_ratio,validation,valid_ratio,True,split_generator) # type: ignore
         dataset_info = get_dataset_info(tumor_type,False,False,proven_mutation_only,test_ratio,valid_ratio) 
         norm = get_norm_transform(unnorm_train_dataset,seed,dataset_info)
         full_dataset = get_image_dataset(tumor_type,samples_per_class,False ,proven_mutation_only,norm)
@@ -292,7 +291,7 @@ def load_image_data(
     '''
     Same as load_training_image_data but a single loader is returned with the entire dataset, along with a list of class names
     '''
-    full_dataset = get_image_dataset(tumor_type=tumor_type,samples_per_class=samples_per_class,stain_normalized=stain_normalize)
+    full_dataset = get_image_dataset(tumor_type=tumor_type,samples_per_class=samples_per_class,stain_normalized=stain_normalize,verbose=True)
     dataset_info = get_dataset_info(tumor_type,False,stain_normalize,False)
     if normalized:
         norm = get_norm_transform(full_dataset,seed,dataset_info)
@@ -617,7 +616,6 @@ def get_mean_std_per_channel(dataset,dataset_info,seed):
         EOFError,
         FileNotFoundError,
     ):  # if the file does not exist, load dataset without transforming and compute mean and std
-        print("Mean and ")
         means, stds = compute_and_save_mean_std_per_channel(
             dataset=dataset, path=mean_std_path, seed=seed
         )
@@ -695,9 +693,11 @@ if __name__ == "__main__":
         #             )
 
         start_time = time.time()
-        load_training_image_data(
-            batch_size=128, seed=seed, samples_per_class=150000, tumor_type=tumor,normalized=True, proven_mutation_only=False
-        )
+        # load_training_image_data(
+        #     batch_size=128, seed=seed, samples_per_class=150000, tumor_type=tumor,normalized=True, proven_mutation_only=False
+        # )
+        load_image_data(128,tumor,seed=seed,normalized=True,stain_normalize=False)
+        load_image_data(128,tumor,seed=seed,normalized=True,stain_normalize=False)
         print(f"--- {(time.time() - start_time)} seconds ---")
 
         # check_for_unopenable_files(tumor_type)
