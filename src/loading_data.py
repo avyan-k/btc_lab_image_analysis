@@ -3,6 +3,8 @@ import numpy as np
 import os
 from pathlib import Path
 import torch
+import torch.utils
+import torch.utils.data
 from torchvision import datasets, transforms
 from torchvision.transforms import v2
 from torch.utils.data import DataLoader, random_split, sampler as torch_sampler
@@ -211,34 +213,38 @@ def load_training_image_data(
     
     if validation:
         train_set,test_set,valid_set,train_class,test_class,valid_class,all_class = split_datasets(full_dataset,test_ratio,True,valid_ratio,False,split_generator) # type: ignore
-        sampler = create_weighted_sampler(full_dataset,all_class,samples_per_class,True)
-        return get_loaders_training_image_data(train_set,test_set,batch_size,sampler,valid_set), (train_class,valid_class,test_class)
+        assert isinstance(valid_set,datasets.DatasetFolder|torch.utils.data.Subset)
+        return get_loaders_training_image_data(train_set,test_set,batch_size,True,train_class,test_class,{k:v for k,v in enumerate(full_dataset.classes)},valid_set,valid_class), (train_class,valid_class,test_class)
     else:
-        train_set,test_set,train_class,test_class,all_class = split_datasets(full_dataset,test_ratio,False,None,False,split_generator) # type: ignore
-        sampler = create_weighted_sampler(full_dataset,all_class,samples_per_class,True)
-        print(all_class)
-        return get_loaders_training_image_data(train_set,test_set,batch_size,sampler), (train_class,test_class) 
+        train_set,test_set,train_class,test_class,_ = split_datasets(full_dataset,test_ratio,False,None,False,split_generator) # type: ignore
+        assert type(train_class) == dict # since multiple return types are possible
+        return get_loaders_training_image_data(train_set,test_set,batch_size,True,train_class,test_class,{k:v for k,v in enumerate(full_dataset.classes)}), (train_class,test_class) 
 
 
 def get_loaders_training_image_data(
-    train_dataset,
-    test_dataset,
-    batch_size,
-    sampler,
-    valid_dataset = None,
+    train_dataset:datasets.DatasetFolder|torch.utils.data.Subset,
+    test_dataset:datasets.DatasetFolder|torch.utils.data.Subset,
+    batch_size:int,
+    weighted:bool,
+    train_classes:dict[str,int],
+    test_classes:dict[str,int],
+    label2class:dict[int,str],
+    valid_dataset:torch.utils.data.Subset|None = None,
+    valid_classes:dict[str,int]|None = None,
 ):
-    if sampler:
+    if weighted:
+        train_sampler = create_weighted_sampler(train_dataset,train_classes,max(train_classes.values()),True,label2class)
         train_loader = DataLoader(
             train_dataset,
             batch_size=batch_size,
-            sampler=sampler,
+            sampler=train_sampler,
             num_workers=get_allowed_forks(),
         )
-
+        test_sampler = create_weighted_sampler(test_dataset,test_classes,max(test_classes.values()),True,label2class)
         test_loader = DataLoader(
             test_dataset,
             batch_size=batch_size,
-            sampler=sampler,
+            sampler=test_sampler,
             num_workers=get_allowed_forks(),
         )
     else:
@@ -256,11 +262,13 @@ def get_loaders_training_image_data(
             num_workers=get_allowed_forks(),
         )
     if valid_dataset:
-        if sampler:
+        assert valid_classes is not None
+        if weighted:
+            valid_sampler = create_weighted_sampler(valid_dataset,valid_classes,max(valid_classes.values()))
             valid_loader = DataLoader(
                 valid_dataset,
                 batch_size=batch_size,
-                sampler=sampler,
+                sampler=valid_sampler,
                 num_workers=get_allowed_forks(),
             )
         else:
@@ -432,18 +440,19 @@ def get_dataset_info(tumor_type,normalized,stain_normalized,proven_mutation,test
         dataset_info += "_proven-mutation-only"
     return dataset_info
 
-def create_weighted_sampler(dataset,class_dict,samples_per_class,verbose=False):
+def create_weighted_sampler(dataset:datasets.DatasetFolder|torch.utils.data.Subset,class_dict,samples_per_class,verbose=False,label2class = None):
     class_weights = list(class_dict.values())
     if samples_per_class == -1:
         samples_per_class = len(dataset) // len(class_weights)
     if verbose:
+        assert label2class is not None
         for tumor_class,class_weight in class_dict.items():
             if class_weight<samples_per_class:
-                print(f"Found {class_weight} samples for class {dataset.classes[tumor_class]}, less than the requested {samples_per_class}. It will be upsampled (resampled with replacement) at a rate of {1-round(float(class_weight/sum(class_weights)),3)}")
+                print(f"Found {class_weight} samples for class {label2class[tumor_class]}, less than the requested {samples_per_class}. It will be upsampled (resampled with replacement) at a rate of {1-round(float(class_weight/sum(class_weights)),3)}")
             elif class_weight>samples_per_class:
-                print(f"Found {class_weight}  samples for class {dataset.classes[tumor_class]}, more than the requested {samples_per_class}. It will be downsampled (some samples will be skipped) during training")
+                print(f"Found {class_weight}  samples for class {label2class[tumor_class]}, more than the requested {samples_per_class}. It will be downsampled (some samples will be skipped) during training")
             else:
-                print(f"Found {class_weight} samples for class {dataset.classes[tumor_class]}, as many as the requested {samples_per_class}. All samples will be equally used.")
+                print(f"Found {class_weight} samples for class {label2class[tumor_class]}, as many as the requested {samples_per_class}. All samples will be equally used.")
     return torch_sampler.WeightedRandomSampler(class_weights, samples_per_class*len(class_weights))   
 
 def check_for_unopenable_files(tumor_type, norm=False):
@@ -635,7 +644,7 @@ def compute_and_save_mean_std_per_channel(dataset, path, seed):
     stds.div_(len(loader)).cpu()
     with open(path, "w") as f:
         f.write(" ".join([str(float(mean)) for mean in means]) + "\n")
-        f.write(" ".join([str(float(mean)) for mean in means]))
+        f.write(" ".join([str(float(std)) for std in stds]))
     return means.tolist(), stds.tolist()
 
 

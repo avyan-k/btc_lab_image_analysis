@@ -282,12 +282,12 @@ def check_if_overfit(valid_losses,filepath):
         if np.all(change_in_loss>0):
             with open(filepath, "a", encoding="utf-8") as f:
                 f.write(f"Validation Loss increasing,\
-                        change in validation loss from last 10 epochs {','.join(change_in_loss)},\
+                        change in validation loss from last 10 epochs {','.join([str(x) for x in change_in_loss])},\
                         exiting training loop") 
             return True
     return False
 
-def main(number_of_epochs:int,samples_per_class:int,batch_size:int,proven_mutation_only:bool,normalize:bool,tumor_type:str):
+def main(number_of_epochs:int,samples_per_class:int,batch_size:int,proven_mutation_only:bool,normalize:bool,tumor_type:str,MLP=True):
     lr = 0.001
     wd = 0.001
     loaders, count_dict = ld.load_training_image_data(
@@ -310,7 +310,7 @@ def main(number_of_epochs:int,samples_per_class:int,batch_size:int,proven_mutati
     count_array = np.array(list(train_count.values()))
     # dataset is imbalanced if the largest class is over twice the size of the smallest class
     imbalance = count_array.max() / count_array.min() > 2
-    classifier = md.ResNet_Tumor(classes=len(train_count.keys()),training=True, classif_layers=0)
+    classifier = md.ResNet_Tumor(classes=len(train_count.keys()),training=True, classif_layers=1 if MLP else 0)
     classifier = classifier.to(DEVICE)
     summary(classifier, input_size=(batch_size, 3, 224, 224))
 
@@ -338,7 +338,7 @@ def main(number_of_epochs:int,samples_per_class:int,batch_size:int,proven_mutati
 
     plot_losses(losses, number_of_epochs, model_path)
     plot_accuracies(accuracies, number_of_epochs, model_path)
-    model_save_path = os.path.join(model_path, f"batch={batch_size}-no_MLP-test_acc={accuracies[1][-1]:0.3f}.pt")
+    model_save_path = os.path.join(model_path, f"batch={batch_size}{'-no_MLP-' if MLP else '-'}test_acc={accuracies[1][-1]:0.3f}.pt")
 
     """Ideally we define a FeatureExtractor parent class to class polymorphism,
     but for now it seems torchscript does not support inheritance
@@ -356,8 +356,12 @@ if __name__ == "__main__":
     seed = 99
     utils.set_seed(seed)
     DEVICE = utils.load_device(seed)
-    main(20,150_000,128,False,True,"DDC_UC_1")
-    main(20,40_000,128,True,True,"DDC_UC_1")
+    main(15,150_000,128,False,True,"DDC_UC_1",True)
+    main(15,150_000,128,False,True,"DDC_UC_1",False)
+    main(15,-1,128,False,True,"DDC_UC_1",True)
+    main(15,-1,128,False,True,"DDC_UC_1",False)
+    main(30,30_000,128,False,True,"DDC_UC_1",True)
+    main(30,30_000,128,False,True,"DDC_UC_1",False)
         # print(losses,accuracies)
         # test_dict = {}
         # for filename in os.listdir(f"results/training/models/ResNet_Tumor/all/{tumor_type}"):
