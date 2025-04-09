@@ -201,14 +201,14 @@ def load_training_image_data(
     '''
     External wrapper for  get_loaders_training_image_data to allow any dataset to be loaded
     '''
-    full_dataset = get_image_dataset(tumor_type=tumor_type,samples_per_class=samples_per_class, proven_mutation=proven_mutation_only,verbose=True)
+    full_dataset = get_image_dataset(tumor_type,samples_per_class,True,proven_mutation_only,verbose=True)
     split_generator = torch.Generator().manual_seed(seed)
     
     if normalized:
         unnorm_train_dataset,_,_,_,_ = split_datasets(full_dataset,test_ratio,validation,valid_ratio,True,split_generator) # type: ignore
         dataset_info = get_dataset_info(tumor_type,False,False,proven_mutation_only,test_ratio,valid_ratio) 
         norm = get_norm_transform(unnorm_train_dataset,seed,dataset_info)
-        full_dataset = get_image_dataset(tumor_type,samples_per_class,False ,proven_mutation_only,norm)
+        full_dataset = get_image_dataset(tumor_type,samples_per_class,True ,proven_mutation_only,norm)
     
     if validation:
         train_set,test_set,valid_set,train_class,test_class,valid_class,all_class = split_datasets(full_dataset,test_ratio,True,valid_ratio,False,split_generator) # type: ignore
@@ -216,7 +216,8 @@ def load_training_image_data(
         return get_loaders_training_image_data(train_set,test_set,batch_size,True,train_class,test_class,{k:v for k,v in enumerate(full_dataset.classes)},valid_set,valid_class), (train_class,valid_class,test_class)
     else:
         train_set,test_set,train_class,test_class,_ = split_datasets(full_dataset,test_ratio,False,None,False,split_generator) # type: ignore
-        assert type(train_class) == dict # since multiple return types are possible
+        print(train_class)
+        assert isinstance(train_class,dict) # since multiple return types are possible
         return get_loaders_training_image_data(train_set,test_set,batch_size,True,train_class,test_class,{k:v for k,v in enumerate(full_dataset.classes)}), (train_class,test_class) 
 
 
