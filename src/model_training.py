@@ -10,7 +10,6 @@ from torcheval.metrics import MulticlassAUROC
 import os
 import time
 from torchinfo import summary
-from typing import Tuple
 
 import loading_data as ld
 import utils
@@ -59,7 +58,7 @@ def train_model(
     if imbalanced:
         accuracy = lambda y_hat, y: multiclass_f1_score(y_hat.cpu(), y.cpu(), num_classes=len(train_count.keys()))
     else:
-        accuracy = lambda y_hat, y: (y.cpu()==y_hat.cpu().argmax(axis=1)).sum()/y.shape[0] # simple accuracy correct predictions/all predictions
+        accuracy = lambda y_hat, y: multiclass_auroc(y_hat.cpu(),y.cpu(),num_classes=len(train_count.keys()))
     for epoch in tqdm(range(num_epochs), desc="Epoch", position=3, leave=False):
         train_loss_sum = 0
         train_loss = float("inf")
@@ -153,11 +152,11 @@ def valid_model(
 
             y_hat = model(X_val)
             val_accuracy_sum += accuracy_function(y_hat, y_val)
-            val_loss_sum += loss_function(y_hat, y_val)
+            val_loss_sum += loss_function(y_hat, y_val).cpu()
 
         # Divide by the number of iterations (and move back to CPU)
         val_accuracy = (val_accuracy_sum / len(valid_loader))
-        val_loss = (val_loss_sum / len(valid_loader)).cpu()
+        val_loss = (val_loss_sum / len(valid_loader))
 
         log_validation_results(
             loss_path, epoch, iteration, loss=val_loss, accuracy=val_accuracy
@@ -314,8 +313,8 @@ def main(number_of_epochs:int,samples_per_class:int,batch_size:int,proven_mutati
     classifier = classifier.to(DEVICE)
     summary(classifier, input_size=(batch_size, 3, 224, 224))
 
-    dataset_description = ld.get_dataset_info(tumor_type,normalize,False,proven_mutation_only)
-    model_path = f"./results/training/models/{str(type(classifier).__name__)}/epochs={number_of_epochs}/{dataset_description}"
+    dataset_description = ld.get_dataset_info(tumor_type,normalize,True,proven_mutation_only)
+    model_path = f"./results/training/models/{str(type(classifier).__name__)}{'_MLP' if MLP else ''}/epochs={number_of_epochs}/{dataset_description}"
     os.makedirs(model_path,exist_ok=True)
     
     trained_model,losses, accuracies = train_model(
@@ -338,7 +337,7 @@ def main(number_of_epochs:int,samples_per_class:int,batch_size:int,proven_mutati
 
     plot_losses(losses, number_of_epochs, model_path)
     plot_accuracies(accuracies, number_of_epochs, model_path)
-    model_save_path = os.path.join(model_path, f"batch={batch_size}{'-no_MLP-' if MLP else '-'}test_acc={accuracies[1][-1]:0.3f}.pt")
+    model_save_path = os.path.join(model_path, f"batch={batch_size}-test_acc={accuracies[1][-1]:0.3f}.pt")
 
     """Ideally we define a FeatureExtractor parent class to class polymorphism,
     but for now it seems torchscript does not support inheritance
@@ -360,8 +359,8 @@ if __name__ == "__main__":
     main(15,150_000,128,False,True,"DDC_UC_1",False)
     main(15,-1,128,False,True,"DDC_UC_1",True)
     main(15,-1,128,False,True,"DDC_UC_1",False)
-    main(30,30_000,128,False,True,"DDC_UC_1",True)
-    main(30,30_000,128,False,True,"DDC_UC_1",False)
+    main(60,10_000,128,False,True,"DDC_UC_1",True)
+    main(60,10_000,128,False,True,"DDC_UC_1",False)
         # print(losses,accuracies)
         # test_dict = {}
         # for filename in os.listdir(f"results/training/models/ResNet_Tumor/all/{tumor_type}"):
