@@ -10,6 +10,7 @@ from torcheval.metrics import MulticlassAUROC
 import os
 import time
 from torchinfo import summary
+from typing import Tuple
 
 import loading_data as ld
 import utils
@@ -286,7 +287,7 @@ def check_if_overfit(valid_losses,filepath):
             return True
     return False
 
-def main(number_of_epochs:int,samples_per_class:int,batch_size:int,proven_mutation_only:bool,normalize:bool,tumor_type:str,MLP=True):
+def main(number_of_epochs:int,samples_per_class:int,batch_size:int,stain_normalize:bool,proven_mutation_only:bool,normalize:bool,tumor_type:str,MLP=True):
     lr = 0.001
     wd = 0.001
     loaders, count_dict = ld.load_training_image_data(
@@ -295,6 +296,7 @@ def main(number_of_epochs:int,samples_per_class:int,batch_size:int,proven_mutati
     tumor_type=tumor_type,
     seed=seed,
     normalized=normalize,
+    stain_normalized=stain_normalize,
     proven_mutation_only=proven_mutation_only,
     validation=False,
     )
@@ -355,12 +357,12 @@ if __name__ == "__main__":
     seed = 99
     utils.set_seed(seed)
     DEVICE = utils.load_device(seed)
-    main(15,150_000,128,False,True,"DDC_UC_1",True)
-    main(15,150_000,128,False,True,"DDC_UC_1",False)
-    main(15,-1,128,False,True,"DDC_UC_1",True)
-    main(15,-1,128,False,True,"DDC_UC_1",False)
-    main(60,10_000,128,False,True,"DDC_UC_1",True)
-    main(60,10_000,128,False,True,"DDC_UC_1",False)
+    main(15,150_000,128,False,True,False,"DDC_UC_1",True)
+    main(15,150_000,128,False,True,False,"DDC_UC_1",False)
+    main(5,-1,128,False,True,False,"DDC_UC_1",True)
+    main(5,-1,128,False,True,False,"DDC_UC_1",False)
+    main(60,10_000,128,False,True,False,"DDC_UC_1",True)
+    main(60,10_000,128,False,True,False,"DDC_UC_1",False)
         # print(losses,accuracies)
         # test_dict = {}
         # for filename in os.listdir(f"results/training/models/ResNet_Tumor/all/{tumor_type}"):

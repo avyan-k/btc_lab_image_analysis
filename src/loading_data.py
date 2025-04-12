@@ -183,6 +183,7 @@ def load_training_image_data(
     seed,
     samples_per_class=-1,
     normalized=True,
+    stain_normalized = False,
     proven_mutation_only=False,
     test_ratio=0.2,
     validation=False,
@@ -191,21 +192,21 @@ def load_training_image_data(
     """
     External wrapper for  get_loaders_training_image_data to allow any dataset to be loaded
     """
-    full_dataset = get_image_dataset(tumor_type, samples_per_class, True, proven_mutation_only, verbose=True)
+    full_dataset = get_image_dataset(tumor_type, samples_per_class, stain_normalized, proven_mutation_only, verbose=True)
     split_generator = torch.Generator().manual_seed(seed)
 
     if normalized:
-        unnorm_train_dataset, _, _, _, _ = split_datasets(  # type: ignore
+        unnorm_train_dataset, _, _, _, _ = split_datasets(
             full_dataset, test_ratio, validation, valid_ratio, True, split_generator
-        )
+        )  # type: ignore
         dataset_info = get_dataset_info(tumor_type, False, False, proven_mutation_only, test_ratio, valid_ratio)
         norm = get_norm_transform(unnorm_train_dataset, seed, dataset_info)
-        full_dataset = get_image_dataset(tumor_type, samples_per_class, True, proven_mutation_only, norm)
+        full_dataset = get_image_dataset(tumor_type, samples_per_class, stain_normalized, proven_mutation_only, norm)
 
     if validation:
-        train_set, test_set, valid_set, train_class, test_class, valid_class, all_class = split_datasets(  # type: ignore
+        train_set, test_set, valid_set, train_class, test_class, valid_class, all_class = split_datasets(
             full_dataset, test_ratio, True, valid_ratio, False, split_generator
-        )
+        )  # type: ignore
         assert isinstance(valid_set, datasets.DatasetFolder | torch.utils.data.Subset)
         return get_loaders_training_image_data(
             train_set,
@@ -219,7 +220,7 @@ def load_training_image_data(
             valid_class,
         ), (train_class, valid_class, test_class)
     else:
-        train_set, test_set, train_class, test_class, _ = split_datasets(  # type: ignore
+        train_set, test_set, train_class, test_class, _ = split_datasets(
             full_dataset, test_ratio, False, None, False, split_generator
         )  # type: ignore
         print(train_class)
@@ -465,7 +466,7 @@ def create_weighted_sampler(
         for tumor_class, class_weight in class_dict.items():
             if class_weight < samples_per_class:
                 print(
-                    f"Found {class_weight} samples for class {label2class[tumor_class]}, less than the requested {samples_per_class}. It will be upsampled (resampled with replacement) at a rate of {1-round(float(class_weight/sum(class_weights)),3)}"
+                    f"Found {class_weight} samples for class {label2class[tumor_class]}, less than the requested {samples_per_class}. It will be upsampled (resampled with replacement) at a rate of {round(float((samples_per_class-class_weight)/(samples_per_class)),4)}"
                 )
             elif class_weight > samples_per_class:
                 print(
@@ -698,11 +699,16 @@ if __name__ == "__main__":
         #             )
 
         start_time = time.time()
-        # load_training_image_data(
-        #     batch_size=128, seed=seed, samples_per_class=150000, tumor_type=tumor,normalized=True, proven_mutation_only=False
-        # )
-        load_image_data(128, tumor, seed=seed, normalized=True, stain_normalize=False)
-        load_image_data(128, tumor, seed=seed, normalized=True, stain_normalize=False)
+        load_training_image_data(
+            batch_size=128,
+            seed=seed,
+            samples_per_class=10_000,
+            tumor_type=tumor,
+            normalized=True,
+            proven_mutation_only=False,
+        )
+        # load_image_data(128,tumor,seed=seed,normalized=True,stain_normalize=False)
+        # load_image_data(128,tumor,seed=seed,normalized=True,stain_normalize=False)
         print(f"--- {(time.time() - start_time)} seconds ---")
 
         # check_for_unopenable_files(tumor_type)
