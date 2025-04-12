@@ -39,6 +39,8 @@ import umap.plot
 import matplotlib.pyplot as plt
 from pathlib import Path
 from tqdm import tqdm
+import sklearn.cluster as cluster
+from sklearn.metrics import adjusted_rand_score as ARI, adjusted_mutual_info_score as NMI
 
 # project files
 import loading_data as ld
@@ -47,14 +49,14 @@ import utils
 
 """FEATURE EXTRACTION"""
 
-def get_features_array(model, tumor_type,stain_normalized, sample, sample_size=-1):
+def get_features_array(model,model_name, tumor_type,stain_normalized, sample, sample_size=-1):
     image_directory = ld.get_image_directory(tumor_type=tumor_type,stain_normalized=stain_normalized)
 
     size_of_image_dataset = ld.get_size_of_dataset(image_directory, extension="jpg")
     sample_size = size_of_image_dataset if not sample else sample_size
     assert sample_size > 0
-    features_filename = f"./features/{tumor_type}{'_normalized_' if stain_normalized else '_'}{type(model).__name__}_features.npz"
-    annotation_filename = f"./features/{tumor_type}{'_normalized_' if stain_normalized else '_'}{type(model).__name__}_annotations.npz"
+    features_filename = f"./features/{tumor_type}{'_normalized_' if stain_normalized else '_'}{model_name}_features.npz"
+    annotation_filename = f"./features/{tumor_type}{'_normalized_' if stain_normalized else '_'}{model_name}_annotations.npz"
 
     # get features for images in image_loader
     if not os.path.isfile(features_filename) or not os.path.isfile(annotation_filename):
@@ -134,31 +136,46 @@ def generate_umap_embeddings(pca, neighbours = 15,minimum_distance = 0.1):
     # Mapping annotations to colors
     return umap_model,umap_embedding
 
-def plot_umap(umap_model,annotations,tumor_type, save_path):
+def k_means_clustering(features, tumour_classes):
+    return cluster.KMeans(n_clusters=tumour_classes).fit_predict(features)
+
+def scatter_plot(embeddings,annotations,title, save_path):
 
     # Generating figure
     plt.figure()
-    umap.plot.points(umap_model, labels=annotations, theme='fire')
-    plt.title(f"{tumor_type} UMAP Projection")
+    plt.scatter(embeddings[:, 0], embeddings[:, 1], c=annotations, s=0.1);
+    plt.title(title)
     plt.xlabel("UMAP Dimension 1")
     plt.ylabel("UMAP Dimension 2")
+    plt.legend()
     plt.savefig(save_path)
     plt.show()
     print(f"UMAP plot saved in {save_path}")
 
-def main(tumor_type,model,stain_normalized = False):
 
-    annotations, model_features = get_features_array(model,tumor_type,stain_normalized=stain_normalized,sample=False)
+
+def main(tumor_type,model,model_name,stain_normalized = False):
+
+    annotations, model_features = get_features_array(model,model_name,tumor_type,stain_normalized=stain_normalized,sample=False)
+    vectorized_annotations = np.vectorize({k:idx for idx,k in enumerate(set(annotations))}.get)(annotations)
     pca_features = get_PCA_embeddings(model_features)
-    fitted_umap = fit_umap_to_pca(pca_features)
-
+    _,umap_embeddings = generate_umap_embeddings(pca_features)
+    k_means = k_means_clustering(model_features,3)
     results_directory = "./results/normalized_umap"
+    if stain_normalized:
+        results_directory+="_stain_normalized"
     Path(os.path.join(results_directory)).mkdir(
             parents=True, exist_ok=True
-    ) 
-    plot_file = f"umap_{tumor_type}_{model_features.shape[0]}{'_normalized_' if stain_normalized else '_'}{type(model).__name__}_annotations.png"  # filename
+    )
+    ari = ARI(vectorized_annotations,k_means)
+    nmi = NMI(vectorized_annotations,k_means)
+    print(ari,nmi)
+    plot_file = f"umap_{tumor_type}_{model_features.shape[0]}{'_normalized_' if stain_normalized else '_'}{model_name}_annotations_ARI={ari:0.3f}_nmi={nmi:0.3f}.png"  # filename
     plot_path = os.path.join(results_directory, plot_file)  # file path
-    plot_umap(fitted_umap,annotations,tumor_type,plot_path)
+    scatter_plot(umap_embeddings,vectorized_annotations,f"UMAP for {tumor_type} using {model_name}{' stain normalized' if stain_normalized else ''}, base labels",plot_path)
+    plot_file = f"umap_{tumor_type}_{model_features.shape[0]}{'_normalized_' if stain_normalized else '_'}{model_name}_annotations_ARI={ari:0.3f}_nmi={nmi:0.3f}_K-Means.png"
+    plot_path = os.path.join(results_directory, plot_file) 
+    scatter_plot(umap_embeddings,k_means,f"UMAP for {tumor_type} using {model_name}{' stain normalized' if stain_normalized else ''}, K-means labels",plot_path)
     print(f"\nUMAP generation completed at {utils.get_time()}")
 
 
@@ -171,9 +188,9 @@ if __name__ == "__main__":
     # resnet_tumor.fc = torch.nn.Identity()
     # main(tumor,resnet_tumor,stain_normalized=True)
     # main(tumor,resnet_tumor,stain_normalized=False)
-    main(tumor,md.get_resnet18_model(),stain_normalized=True)
-    main(tumor,md.get_resnet18_model(),stain_normalized=False)
-    main(tumor,md.get_resnet50_model(),stain_normalized=True)
-    main(tumor,md.get_resnet50_model(),stain_normalized=False)
-    main(tumor,md.get_VGG16_model(),stain_normalized=True)
-    main(tumor,md.get_VGG16_model(),stain_normalized=False)
+    main(tumor,md.get_resnet18_model(),"ResNet18",stain_normalized=True)
+    main(tumor,md.get_resnet18_model(),"ResNet18",stain_normalized=False)
+    main(tumor,md.get_resnet50_model(),"ResNet50",stain_normalized=True)
+    main(tumor,md.get_resnet50_model(),"ResNet50",stain_normalized=False)
+    main(tumor,md.get_VGG16_model(),"VGG16",stain_normalized=True)
+    main(tumor,md.get_VGG16_model(),"VGG16",stain_normalized=False)
