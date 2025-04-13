@@ -146,7 +146,6 @@ def get_resnet18_model():
 def get_VGG16_model():
     model = torchmodels.vgg16(weights=torchmodels.VGG16_Weights.DEFAULT)
     model.eval()
-    model.classifier = nn.Identity()
     return model
 
 if __name__ == "__main__":
